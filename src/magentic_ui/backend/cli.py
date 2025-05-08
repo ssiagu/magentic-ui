@@ -1,10 +1,11 @@
 import os
+import sys
 import warnings
-from typing import Optional
-from pathlib import Path
 import typer
 import uvicorn
 from typing_extensions import Annotated
+from typing import Optional
+from pathlib import Path
 
 from .version import VERSION
 from .._docker import (
@@ -22,7 +23,6 @@ warnings.filterwarnings("ignore", message="websockets.legacy is deprecated*")
 warnings.filterwarnings(
     "ignore", message="websockets.server.WebSocketServerProtocol is deprecated*"
 )
-
 
 def get_env_file_path():
     app_dir = os.path.join(os.path.expanduser("~"), ".magentic_ui")
@@ -59,22 +59,40 @@ def ui(
         rebuild_docker: bool, optional: Rebuild the docker images. Defaults to False.
     """
 
+    typer.echo(typer.style("Starting Magentic-UI", fg=typer.colors.GREEN, bold=True))
+
     # Set things up for Docker
+    typer.echo("Checking if Docker is running...", nl=False)
+
     if not check_docker_running():
+        typer.echo(typer.style("Failed\n", fg=typer.colors.RED, bold=True))
         typer.echo("Docker is not running. Please start Docker and try again.")
         raise typer.Exit(1)
+    else:
+        typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
 
+    typer.echo("Checking Docker vnc browser image...", nl=False)
     if not check_browser_image() or rebuild_docker:
-        typer.echo(
-            "Docker image for vnc browser not found. Building the image (this may take a few minutes)..."
-        )
+        typer.echo(typer.style("Update\n", fg=typer.colors.YELLOW, bold=True))
+        typer.echo("Building Docker vnc image (this WILL take a few minutes)")
         build_browser_image()
+        typer.echo("\n")
+    else:
+        typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
 
+
+    typer.echo("Checking Docker python image...", nl=False)
     if not check_python_image() or rebuild_docker:
+        typer.echo(typer.style("Update\n", fg=typer.colors.YELLOW, bold=True))
         typer.echo(
-            "Docker image for python not found. Building the image (this may take a few minutes)..."
+            "Building Docker python image (this WILL take a few minutes)"
         )
         build_python_image()
+        typer.echo("\n")
+    else:
+        typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
+
+    typer.echo("Launching Web Application...")
 
     # Write configuration
     env_vars = {
