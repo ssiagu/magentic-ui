@@ -1,5 +1,4 @@
 import os
-import sys
 import warnings
 import typer
 import uvicorn
@@ -23,6 +22,7 @@ warnings.filterwarnings("ignore", message="websockets.legacy is deprecated*")
 warnings.filterwarnings(
     "ignore", message="websockets.server.WebSocketServerProtocol is deprecated*"
 )
+
 
 def get_env_file_path():
     app_dir = os.path.join(os.path.expanduser("~"), ".magentic_ui")
@@ -80,13 +80,10 @@ def ui(
     else:
         typer.echo(typer.style("OK", fg=typer.colors.GREEN, bold=True))
 
-
     typer.echo("Checking Docker python image...", nl=False)
     if not check_python_image() or rebuild_docker:
         typer.echo(typer.style("Update\n", fg=typer.colors.YELLOW, bold=True))
-        typer.echo(
-            "Building Docker python image (this WILL take a few minutes)"
-        )
+        typer.echo("Building Docker python image (this WILL take a few minutes)")
         build_python_image()
         typer.echo("\n")
     else:
