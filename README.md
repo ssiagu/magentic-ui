@@ -7,8 +7,7 @@ _Complete complex web tasks by combining real-time browser automation with trans
 
 </div>
 
-![Magentic-UI Demo](./docs/landing.gif)
-
+<img src="./docs/landing.gif" loop=infinite>
 
 Magentic-UI is a multi-agent system for automating complex web tasks. An Orchestrator coordinates four agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, all through a collaborative web interface. Here's how you can get started with Magentic-UI.
 
