@@ -7,9 +7,17 @@ _Complete complex web tasks by combining real-time browser automation with trans
 
 </div>
 
-<img src="./docs/landing.gif" loop=infinite>
+<!-- <img src="./docs/landing.gif" loop=infinite> -->
 
-Magentic-UI is a multi-agent system for automating complex web tasks. An Orchestrator coordinates four agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, all through a collaborative web interface. Here's how you can get started with Magentic-UI.
+<!-- Screenshots -->
+<p align="center">
+  <img src="docs/magui-landing.png" alt="Magentic-UI Landing" width="45%" style="margin:10px;">
+  <img src="docs/magui-coplanning.png" alt="Co-Planning UI" width="45%" style="margin:10px;">
+  <img src="docs/magui-cotasking.png" alt="Co-Tasking UI" width="45%" style="margin:10px;">
+  <img src="docs/magui-actionguard.png" alt="Action Guard UI" width="45%" style="margin:10px;">
+</p>
+
+Magentic-UI is a multi-agent system for automating complex web tasks. An Orchestrator coordinates four agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, all through a collaborative web interface. Here's how you can get started with Magentic-UI. It's easy to install and run, and you can even build it from source if you prefer.
 
 ```bash
 python3 -m venv .venv
@@ -18,8 +26,6 @@ pip install magentic-ui
 # export OPENAI_API_KEY=<YOUR API KEY>
 magentic ui --port 8081
 ```
-
-
 
 
 ## About Magentic-UI
