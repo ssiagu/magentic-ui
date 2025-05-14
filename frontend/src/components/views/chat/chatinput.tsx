@@ -296,18 +296,6 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       debounce((query: string) => {
         console.log("Search request with query:", query);
 
-        const shouldSearch =
-          runStatus === "connected" ||
-          (runStatus === "awaiting_input" && !isPlanMessage);
-
-        if (!shouldSearch) {
-          console.log("Search skipped - not in a searchable state:", {
-            runStatus,
-            isPlanMessage,
-          });
-          return;
-        }
-
         // Don't search if query is too short, no plans available, or plan is already attached
         if (
           query.length < 3 ||
@@ -327,7 +315,6 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                 return true;
               }
             }
-
             const taskMatches = searchTerms.every((term) =>
               plan.taskLower.includes(term)
             );
@@ -354,7 +341,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
         } finally {
           setIsSearching(false);
         }
-      }, 300),
+      }, 1000),
       [searchableData, runStatus, isPlanMessage, attachedPlan]
     );
 
@@ -364,11 +351,12 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
       const newText = event.target.value;
       setText(newText);
 
-      // Updated condition: search when "connected" OR ("awaiting_input" AND not showing plan)
-      const shouldSearch =
-        runStatus === "connected" ||
-        (runStatus === "awaiting_input" && !isPlanMessage);
+      // Clear relevant plans and attached plan as soon as the query changes
+      setRelevantPlans([]);
 
+      const shouldSearch = !(
+        runStatus === "connected" || runStatus === "awaiting_input"
+      );
       if (shouldSearch) {
         searchPlans(newText);
       } else if (relevantPlans.length > 0) {
