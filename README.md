@@ -17,7 +17,7 @@ _Complete complex web tasks by combining real-time browser automation with trans
   <img src="docs/magui-actionguard.png" alt="Action Guard UI" width="45%" style="margin:10px;">
 </p>
 
-Magentic-UI is a multi-agent system for automating complex web tasks. An Orchestrator coordinates four [AutoGen](https://github.com/microsoft/autogen) agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, all through a collaborative web interface.
+Magentic-UI is a agentic web interface for solving complex web tasks. An Orchestrator coordinates four [AutoGen](https://github.com/microsoft/autogen) agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, etc. It is designed with user-agent collaboration in mind and offers a transparent, controllable interface. Key features include:
 
 > **Key Features:**
 > 
