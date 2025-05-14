@@ -69,7 +69,6 @@ const PlanList: React.FC<PlanListProps> = ({
     try {
       setLoading(true);
       const response = await planAPI.listPlans(userId);
-      console.log("response", response);
 
       const validatedPlans: IPlan[] = response.map(
         (plan) => normalizePlanData(plan, userId, "Untitled", true) as IPlan // preserve ID
