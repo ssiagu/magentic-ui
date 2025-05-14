@@ -39,7 +39,7 @@ Magentic-UI is a multi-agent system consisting of 5 agents - an Orchestrator tha
 
 Magentic-UI provides a web interface for users to interact with the system, submit tasks, and monitor progress.
 
-## How does it work?
+### How does it work?
 
 <p align="center">
   <img src="./docs/magenticui.png" alt="Magentic-UI" height="400">
@@ -78,8 +78,9 @@ Magentic-UI provides a web interface for users to interact with the system, subm
 
 Throughout this process, the user can provide feedback during both planning and execution, making this a truly collaborative system for complex task completion.
 
+## How to Use Magentic-UI
 
-## Prerequisites
+### Prerequisites
 
 1. Magentic-UI requires Docker as part of normal operation. If running on Windows or Mac, you can use [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
@@ -88,7 +89,7 @@ Throughout this process, the user can provide feedback during both planning and 
 3. Provide your OpenAI API key to Magentic-UI by setting the environmental variable `OPENAI_API_KEY`. Alternatively, review the [Custom Client Configuration](#custom-client-configuration) section below.
 
 
-## PyPI Installation 
+### PyPI Installation 
 
 Magentic-UI is available on PyPI. We recommend using a virtual environment to avoid conflicts with other packages.
 
@@ -106,7 +107,7 @@ uv venv --python=3.12 .venv
 uv pip install magentic-ui
 ```
 
-## Running Magentic-UI
+### Running Magentic-UI
 
 To run Magentic-UI, make sure that Docker is running, then run the following command:
 
@@ -118,7 +119,7 @@ The first time that you run this command, it will take a while to build the Dock
 
 Once the server is running, you can access the UI at <http://localhost:8081>.
 
-## Custom Client Configuration
+### Custom Client Configuration
 
 If you want to use a different OpenAI key, or if you want to configure use with Azure OpenAI, you can do so by creating a `config.yaml` file in the `appdir` folder (typically `~/.magentic_ui`).
 
@@ -184,11 +185,11 @@ user_proxy_client: *client
 ```
 
 
-## Building Magentic-UI from source
+### Building Magentic-UI from source
 
-### 1. Make sure the above prerequisites are installed, and that Docker is running.
+#### 1. Make sure the above prerequisites are installed, and that Docker is running.
 
-### 2. Clone the repository to your local machine:
+#### 2. Clone the repository to your local machine:
 
 ```bash
 git clone https://github.com/microsoft/magentic-ui.git
@@ -202,7 +203,7 @@ git clone git@github.com:microsoft/magentic-ui.git
 cd magentic-ui
 ```
 
-### 3. Install Magentic-UI's dependencies with uv:
+#### 3. Install Magentic-UI's dependencies with uv:
 
 ```bash
 # install uv through https://docs.astral.sh/uv/getting-started/installation/
@@ -211,7 +212,7 @@ uv sync --all-extras
 source .venv/bin/activate
 ```
 
-### 4. Build the frontend:
+#### 4. Build the frontend:
 
 First make sure to have install node:
 
@@ -232,7 +233,7 @@ yarn build
 cd ..
 ```
 
-### 5. Run Magentic-UI, as usual.
+#### 5. Run Magentic-UI, as usual.
 
 ```bash
 magentic ui --port 8081
@@ -244,7 +245,7 @@ For hosting the Magentic-UI, run the command:
 magentic ui --port 8081 --host 0.0.0.0
 ```
 
-### Running the UI from source
+#### Running the UI from source
 
 If you are working on the UI, you can run the frontend in development mode so that it will automatically update when you make changes.
 
@@ -274,7 +275,7 @@ magentic ui --port 8081
 
 The frontend from source will be available at <http://localhost:8000>, and the compiled frontend will be available at <http://localhost:8081>.
 
-## Running the web surfer container directly
+### Running the web surfer container directly
 
 First, ensure it is built. Youc an do this by running Magentic UI once beforehand, or by running the following commands:
 
