@@ -24,6 +24,7 @@ Magentic-UI is a agentic web interface for solving complex web tasks. An Orchest
 - 🛡️ **Action Guards**: Protect sensitive actions with user approvals.
 - 🧠 **Plan Learning**: Learn from previous runs to improve future task automation.
 
+
 Here's how you can get started with Magentic-UI. It's easy to install and run, and you can even build it from source if you prefer.
 
 ```bash
@@ -33,6 +34,20 @@ pip install magentic-ui
 # export OPENAI_API_KEY=<YOUR API KEY>
 magentic ui --port 8081
 ```
+
+
+## Table of Contents
+
+| Section | Description |
+|---------|-------------|
+| [About Magentic-UI](#about-magentic-ui) | System overview and agent roles |
+| [How does it work?](#how-does-it-work) | Step-by-step workflow |
+| [How to Use](#how-to-use-magentic-ui) | Prerequisites and usage |
+| [Custom Client Configuration](#custom-client-configuration) | OpenAI/Azure config setup |
+| [Building from Source](#building-magentic-ui-from-source) | Developer instructions |
+| [Contributing](#contributing) | How to help and contribute |
+| [Legal Notices](#legal-notices) | Licensing and legal info |
+
 
 
 ## About Magentic-UI
