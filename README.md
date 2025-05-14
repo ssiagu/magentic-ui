@@ -44,25 +44,24 @@ Magentic-UI is a multi-agent system consisting of 5 agents - an Orchestrator tha
 - **FileSurfer**: Handles file operations like reading, writing, and navigating documents
 - **UserProxy**: Interfaces with the human user, collecting feedback and approvals
 
-Magentic-UI provides a web interface for users to interact with the system, submit tasks, and monitor progress.
-
 ### How does it work?
+
+
 
 <p align="center">
   <img src="./docs/magenticui.png" alt="Magentic-UI" height="400">
 </p>
 
+After you submit a task the following steps occur:
 
 
-1. **Task Input**: The user submits a task that requires multiple steps to complete.
-
-2. **Planning Phase**:
+1. **Planning Phase**:
 
    - The Orchestrator generates a step-by-step plan or retrieves a similar plan from memory
    - With co-planning enabled, the user can review, modify, and approve the plan before execution begins
    - Each plan step specifies which specialized agent will perform the action
 
-3. **Execution Phase**:
+2. **Execution Phase**:
 
    - **Step Execution**:
 
