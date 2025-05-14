@@ -43,7 +43,6 @@ const normalizePlanData = (
       : [],
     user_id: planData.user_id || userId,
     session_id: planData.session_id || null,
-    created_at: planData.created_at,
   };
 };
 
@@ -70,6 +69,7 @@ const PlanList: React.FC<PlanListProps> = ({
     try {
       setLoading(true);
       const response = await planAPI.listPlans(userId);
+      console.log("response", response);
 
       const validatedPlans: IPlan[] = response.map(
         (plan) => normalizePlanData(plan, userId, "Untitled", true) as IPlan // preserve ID

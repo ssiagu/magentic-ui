@@ -305,7 +305,6 @@ export default function ChatView({
     setCurrentRun((current: Run | null) => {
       if (!current || !session?.id) return null;
 
-      console.log("WebSocket message:", message);
 
       switch (message.type) {
         case "error":
