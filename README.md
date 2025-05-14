@@ -19,12 +19,10 @@ _Complete complex web tasks by combining real-time browser automation with trans
 
 Magentic-UI is a agentic web interface for solving complex web tasks. An Orchestrator coordinates four [AutoGen](https://github.com/microsoft/autogen) agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, etc. It is designed with user-agent collaboration in mind and offers a transparent, controllable interface. Key features include:
 
-> **Key Features:**
-> 
-> - 🧑‍🤝‍🧑 **Co-Planning**: Collaboratively create, review, and approve step-by-step plans with the system.
-> - 🤝 **Co-Tasking**: Work together with agents to execute complex tasks, with real-time feedback and control.
-> - 🛡️ **Action Guards**: Protect sensitive actions (file changes, code execution, navigation) with user approvals.
-> - 🧠 **Plan Learning**: The system learns from previous plans to improve future task automation.
+- 🧑‍🤝‍🧑 **Co-Planning**: Collaboratively create and approve step-by-step plans.
+- 🤝 **Co-Tasking**: Work together to execute complex tasks, with real-time feedback and control.
+- 🛡️ **Action Guards**: Protect sensitive actions with user approvals.
+- 🧠 **Plan Learning**: Learn from previous runs to improve future task automation.
 
 Here's how you can get started with Magentic-UI. It's easy to install and run, and you can even build it from source if you prefer.
 
