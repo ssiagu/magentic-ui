@@ -27,7 +27,7 @@ Magentic-UI is a **research prototype** of an agentic web interface for solving 
 
 Here's how you can get started with Magentic-UI. It's easy to install and run, and you can even build it from source if you prefer.
 
-> **Note**: Please read the [pre-requisites](#prerequisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. If you are using Mac or Linux, you can skip the WSL2 step.
+> **Note**: Before installing, please read the [pre-requisites](#prerequisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. If you are using Mac or Linux, you can skip the WSL2 step.
 
 ```bash
 python3 -m venv .venv
