@@ -17,7 +17,16 @@ _Complete complex web tasks by combining real-time browser automation with trans
   <img src="docs/magui-actionguard.png" alt="Action Guard UI" width="45%" style="margin:10px;">
 </p>
 
-Magentic-UI is a multi-agent system for automating complex web tasks. An Orchestrator coordinates four agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, all through a collaborative web interface. Here's how you can get started with Magentic-UI. It's easy to install and run, and you can even build it from source if you prefer.
+Magentic-UI is a multi-agent system for automating complex web tasks. An Orchestrator coordinates four agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, all through a collaborative web interface.
+
+> **Key Features:**
+> 
+> - 🧑‍🤝‍🧑 **Co-Planning**: Collaboratively create, review, and approve step-by-step plans with the system.
+> - 🤝 **Co-Tasking**: Work together with agents to execute complex tasks, with real-time feedback and control.
+> - 🛡️ **Action Guards**: Protect sensitive actions (file changes, code execution, navigation) with user approvals.
+> - 🧠 **Plan Learning**: The system learns from previous plans to improve future task automation.
+
+Here's how you can get started with Magentic-UI. It's easy to install and run, and you can even build it from source if you prefer.
 
 ```bash
 python3 -m venv .venv
