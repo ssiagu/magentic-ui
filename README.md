@@ -17,7 +17,7 @@ _Complete complex web tasks by combining real-time browser automation with trans
   <img src="docs/magui-actionguard.png" alt="Action Guard UI" width="45%" style="margin:10px;">
 </p>
 
-Magentic-UI is a agentic web interface for solving complex web tasks. An Orchestrator coordinates four [AutoGen](https://github.com/microsoft/autogen) agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, etc. It is designed with user-agent collaboration in mind and offers a transparent, controllable interface. Key features include:
+Magentic-UI is a **research prototype** of an agentic web interface for solving complex web tasks. An Orchestrator coordinates four [AutoGen](https://github.com/microsoft/autogen) agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, etc. It is designed with user-agent collaboration in mind and offers a transparent, controllable interface. Key features include:
 
 - 🧑‍🤝‍🧑 **Co-Planning**: Collaboratively create and approve step-by-step plans.
 - 🤝 **Co-Tasking**: Work together to execute complex tasks, with real-time feedback and control.
@@ -26,6 +26,8 @@ Magentic-UI is a agentic web interface for solving complex web tasks. An Orchest
 
 
 Here's how you can get started with Magentic-UI. It's easy to install and run, and you can even build it from source if you prefer.
+
+> **Note**: Please read the [pre-requisites](#prerequisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. If you are using Mac or Linux, you can skip the WSL2 step.
 
 ```bash
 python3 -m venv .venv
@@ -56,7 +58,7 @@ Magentic-UI is a multi-agent system consisting of 5 agents - an Orchestrator tha
 
 - **WebSurfer**: Navigates the web, retrieves information, and interacts with websites
 - **Coder**: Writes and executes code to solve programming tasks
-- **FileSurfer**: Handles file operations like reading, writing, and navigating documents
+- **FileSurfer**: Handles file operations like reading and navigating documents
 - **UserProxy**: Interfaces with the human user, collecting feedback and approvals
 
 ### How does it work?
@@ -97,7 +99,7 @@ After you submit a task the following steps occur:
      - Once all steps are executed, the Orchestrator synthesizes a final answer
      - The system can optionally allow for follow-up questions or new tasks
 
-Throughout this process, the user can provide feedback during both planning and execution, making this a truly collaborative system for complex task completion.
+Throughout this process, the user can interrupt and take control provide feedback during both planning and execution, making this a truly collaborative system for complex task completion.
 
 ## How to Use Magentic-UI
 
@@ -109,6 +111,7 @@ Throughout this process, the user can provide feedback during both planning and 
 
 3. Provide your OpenAI API key to Magentic-UI by setting the environmental variable `OPENAI_API_KEY`. Alternatively, review the [Custom Client Configuration](#custom-client-configuration) section below.
 
+4. You need at least Python 3.10 installed.
 
 ### PyPI Installation 
 
