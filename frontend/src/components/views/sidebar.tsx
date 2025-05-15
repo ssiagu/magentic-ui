@@ -15,6 +15,7 @@ import type { Session, RunStatus } from "../types/datamodel";
 import SubMenu from "../common/SubMenu";
 import { SessionRunStatusIndicator } from "./statusicon";
 import LearnPlanButton from "../features/Plans/LearnPlanButton";
+import { Button as CustomButton } from "../common/Button";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -219,15 +220,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="my-4 flex text-sm">
               <div className="mr-2 w-full">
                 <Tooltip title="Create new session">
-                  <Button
-                    type="text"
-                    className="w-full bg-magenta-600 text-primary-active hover:bg-magenta-700"
-                    icon={<Plus className="w-4 h-4 " />}
+                  <CustomButton
+                    className="w-full"
+                    variant="primary"
+                    size="md"
+                    icon={<Plus className="w-4 h-4" />}
                     onClick={() => onEditSession()}
                     disabled={isLoading}
                   >
                     New Session
-                  </Button>
+                  </CustomButton>
                 </Tooltip>
               </div>
             </div>
