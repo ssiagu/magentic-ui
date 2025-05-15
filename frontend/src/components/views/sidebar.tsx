@@ -124,20 +124,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 trigger={["click"]}
                 overlay={
                   <Menu>
-                    <Menu.Item key="edit" onClick={(e) => { e.domEvent.stopPropagation(); onEditSession(s); }}>
+                    <Menu.Item
+                      key="edit"
+                      onClick={(e) => {
+                        e.domEvent.stopPropagation();
+                        onEditSession(s);
+                      }}
+                    >
                       Edit
                     </Menu.Item>
-                    <Menu.Item key="delete" onClick={(e) => { e.domEvent.stopPropagation(); if (s.id) onDeleteSession(s.id); }} danger>
+                    <Menu.Item
+                      key="delete"
+                      onClick={(e) => {
+                        e.domEvent.stopPropagation();
+                        if (s.id) onDeleteSession(s.id);
+                      }}
+                      danger
+                    >
                       Delete
                     </Menu.Item>
-                    <Menu.Item key="learn-plan" onClick={(e) => e.domEvent.stopPropagation()}>
-                      <LearnPlanButton sessionId={Number(s.id)} messageId={-1} />
+                    <Menu.Item
+                      key="learn-plan"
+                      onClick={(e) => e.domEvent.stopPropagation()}
+                    >
+                      <LearnPlanButton
+                        sessionId={Number(s.id)}
+                        messageId={-1}
+                      />
                     </Menu.Item>
                   </Menu>
                 }
                 placement="bottomRight"
               >
-                <Button type="text" size="small" className="p-0 min-w-[24px] h-6" icon={<MoreVertical className="w-4 h-4" />} onClick={e => e.stopPropagation()} />
+                <Button
+                  type="text"
+                  size="small"
+                  className="p-0 min-w-[24px] h-6"
+                  icon={<MoreVertical className="w-4 h-4" />}
+                  onClick={(e) => e.stopPropagation()}
+                />
               </Dropdown>
             </div>
           </div>
@@ -195,8 +220,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="mr-2 w-full">
                 <Tooltip title="Create new session">
                   <Button
-                    type="primary"
-                    className="w-full bg-accent text-accent hover:bg-light hover:text-primary"
+                    type="text"
+                    className="w-full bg-magenta-600 text-primary-active hover:bg-magenta-700"
                     icon={<Plus className="w-4 h-4 " />}
                     onClick={() => onEditSession()}
                     disabled={isLoading}

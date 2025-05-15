@@ -776,7 +776,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     type="button"
                     onClick={handleSubmit}
                     disabled={isInputDisabled}
-                    className={`bg-accent transition duration-300 rounded flex justify-center items-center w-11 h-9 ${
+                    className={`bg-magenta-900 transition duration-300 rounded flex justify-center items-center w-11 h-9 ${
                       isInputDisabled
                         ? "cursor-not-allowed"
                         : "hover:brightness-75"

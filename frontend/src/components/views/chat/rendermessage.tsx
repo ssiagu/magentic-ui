@@ -100,9 +100,9 @@ const getStepIcon = (
   if (is_step_repeated)
     return <AlertTriangle size={16} className="text-red-500" />;
   if (status === "completed")
-    return <CheckCircle size={16} className="text-green-500" />;
+    return <CheckCircle size={16} className="text-magenta-900" />;
   if (status === "current" && runStatus === "active")
-    return <RefreshCw size={16} className="text-blue-500 animate-spin" />;
+    return <RefreshCw size={16} className="text-purple-900 animate-spin" />;
   if (status === "upcoming")
     return <Clock size={16} className="text-gray-400" />;
   if (status === "failed")
@@ -218,7 +218,7 @@ const RenderMultiModalBrowserStep: React.FC<{
               <div className="flex-shrink-0 mr-1 -ml-1 mt-2">
                 <Globe2
                   size={16}
-                  className="text-blue-500 hover:text-blue-600 cursor-pointer"
+                  className="text-magenta-700 hover:text-magenta-900 cursor-pointer"
                   onClick={() => onImageClick?.(index)}
                 />
               </div>
@@ -383,12 +383,12 @@ const RenderStepExecution: React.FC<RenderStepExecutionProps> = memo(
             </div>
           )}
         <div
-          className={`relative border-2 border-transparent hover:border-gray-300 rounded-lg p-2 cursor-pointer overflow-hidden bg-secondary`}
+          className={`relative border-2 border-transparent hover:border-magenta-600 rounded-lg p-2 cursor-pointer overflow-hidden bg-magenta-400`}
           onClick={handleToggle}
         >
           <div className="flex items-center w-full">
             <button
-              className="flex-none flex items-center justify-center w-8 h-8 rounded-full bg-secondary hover:bg-accent transition-colors"
+              className="flex-none flex items-center justify-center w-8 h-8 rounded-full bg-magenta-400 hover:bg-magenta-600 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
                 handleToggle();
@@ -400,13 +400,13 @@ const RenderStepExecution: React.FC<RenderStepExecutionProps> = memo(
               }
             >
               {isExpanded ? (
-                <ChevronDown size={16} className="text-primary" />
+                <ChevronDown size={16} className="text-message" />
               ) : (
-                <ChevronRight size={16} className="text-primary" />
+                <ChevronRight size={16} className="text-message" />
               )}
             </button>
             <div className="flex-1 mx-2">
-              <div className="font-semibold text-primary">
+              <div className="font-semibold text-message">
                 Step {content.index + 1}: {content.title}
               </div>
             </div>
@@ -691,7 +691,7 @@ export const RenderMessage: React.FC<MessageProps> = memo(
           <div
             className={`${
               isUser || isUserProxy
-                ? `text-white rounded-2xl bg-blue-500 rounded-tr-sm px-4 py-2 ${
+                ? `text-message rounded-2xl bg-light-blue rounded-tr-sm px-4 py-2 ${
                     parsedContent.plan && parsedContent.plan.length > 0
                       ? "w-[80%]"
                       : "max-w-[80%]"
