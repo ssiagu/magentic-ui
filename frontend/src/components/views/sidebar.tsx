@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Button, Tooltip, Dropdown, Menu } from "antd";
+import { Tooltip, Dropdown, Menu } from "antd";
 import {
   Plus,
   Edit,
@@ -16,7 +16,7 @@ import type { Session, RunStatus } from "../types/datamodel";
 import SubMenu from "../common/SubMenu";
 import { SessionRunStatusIndicator } from "./statusicon";
 import LearnPlanButton from "../features/Plans/LearnPlanButton";
-import { Button as CustomButton } from "../common/Button";
+import { Button } from "../common/Button";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -159,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         disabled={!isActive}
                         danger
                       >
-                        <StopCircle className="w-4 h-4 inline-block mr-1.5 -mt-0.5 text-red-500" />{" "}
+                        <StopCircle className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
                         Disconnect
                       </Menu.Item>
                       <Menu.Item
@@ -170,7 +170,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }}
                         danger
                       >
-                        <Trash2 className="w-4 h-4 inline-block mr-1.5 -mt-0.5 text-red-500" />{" "}
+                        <Trash2 className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />{" "}
                         Delete
                       </Menu.Item>
                       <Menu.Item
@@ -187,11 +187,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   placement="bottomRight"
                 >
                   <Button
-                    type="text"
-                    size="small"
-                    className="p-0 min-w-[24px] h-6"
+                    variant="tertiary"
+                    size="sm"
                     icon={<MoreVertical className="w-4 h-4" />}
                     onClick={(e) => e.stopPropagation()}
+                    className="!p-0 min-w-[24px] h-6"
                   />
                 </Dropdown>
               </div>
@@ -250,7 +250,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="my-4 flex text-sm">
               <div className="mr-2 w-full">
                 <Tooltip title="Create new session">
-                  <CustomButton
+                  <Button
                     className="w-full"
                     variant="primary"
                     size="md"
@@ -259,7 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     disabled={isLoading}
                   >
                     New Session
-                  </CustomButton>
+                  </Button>
                 </Tooltip>
               </div>
             </div>
