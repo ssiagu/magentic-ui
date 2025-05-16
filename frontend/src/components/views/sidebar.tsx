@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return (
           <div key={s.id} className="relative">
             <div
-              className={`group flex items-center justify-between rounded-l p-2 py-1 text-sm ${
+              className={`group flex items-center justify-between p-2 py-1 text-sm ${
                 isLoading
                   ? "pointer-events-none opacity-50"
                   : "cursor-pointer hover:bg-tertiary"
