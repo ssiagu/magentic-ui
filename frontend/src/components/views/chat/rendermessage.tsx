@@ -102,7 +102,7 @@ const getStepIcon = (
   if (status === "completed")
     return <CheckCircle size={16} className="text-magenta-800" />;
   if (status === "current" && runStatus === "active")
-    return <RefreshCw size={16} className="text-purple-900 animate-spin" />;
+    return <RefreshCw size={16} className="text-magenta-800 animate-spin" />;
   if (status === "upcoming")
     return <Clock size={16} className="text-gray-400" />;
   if (status === "failed")
