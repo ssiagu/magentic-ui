@@ -21,16 +21,16 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
       {/* This container controls the position */}
       <div className="w-[22vw] ml-[10vw] pointer-events-none">
         <div className="feedback-form w-full max-w-md pointer-events-auto">
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-tertiary rounded-lg shadow-lg p-6">
             <div className="flex justify-center mb-4">
               <div className="p-2 rounded-full bg-blue-700">
                 <EyeOff className="text-blue-800 w-8 h-8" />
               </div>
             </div>
-            <h3 className="text-lg font-medium text-black mb-4 text-center">
+            <h3 className="text-lg font-medium text-primary mb-4 text-center">
               Magentic-UI can't see what you do when you take control.
             </h3>
-            <p className="text-base mb-4 text-black">
+            <p className="text-base mb-4 text-primary">
               Please describe what you did when you are ready to hand back
               control:
             </p>
