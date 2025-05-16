@@ -743,7 +743,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                         title={
                           <span className="text-sm">
                             Upload File{" "}
-                            <span className="text-secondary text-xs">
+                            <span className="text-gray-700 text-xs">
                               (max 5mb)
                             </span>
                           </span>
@@ -776,10 +776,10 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                     type="button"
                     onClick={handleSubmit}
                     disabled={isInputDisabled}
-                    className={`bg-magenta-900 transition duration-300 rounded flex justify-center items-center w-11 h-9 ${
+                    className={`bg-magenta-800 transition duration-300 rounded flex justify-center items-center w-11 h-9 ${
                       isInputDisabled
                         ? "cursor-not-allowed"
-                        : "hover:brightness-75"
+                        : "hover:bg-magenta-900"
                     }`}
                   >
                     <PaperAirplaneIcon className="h-6 w-6 text-white" />

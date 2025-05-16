@@ -681,7 +681,7 @@ const RunView: React.FC<RunViewProps> = ({
       {isDetailViewerMinimized && novncPort !== undefined && (
         <button
           onClick={() => setIsDetailViewerMinimized(false)}
-          className="self-start sticky top-0 h-full inline-flex text-magenta-700 hover:text-magenta-900 cursor-pointer"
+          className="self-start sticky top-0 h-full inline-flex text-magenta-800 hover:text-magenta-900 cursor-pointer"
           title="Show browser"
         >
           <Globe2 size={20} />

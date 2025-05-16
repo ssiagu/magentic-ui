@@ -100,7 +100,7 @@ const getStepIcon = (
   if (is_step_repeated)
     return <AlertTriangle size={16} className="text-red-500" />;
   if (status === "completed")
-    return <CheckCircle size={16} className="text-magenta-900" />;
+    return <CheckCircle size={16} className="text-magenta-800" />;
   if (status === "current" && runStatus === "active")
     return <RefreshCw size={16} className="text-purple-900 animate-spin" />;
   if (status === "upcoming")
@@ -218,7 +218,7 @@ const RenderMultiModalBrowserStep: React.FC<{
               <div className="flex-shrink-0 mr-1 -ml-1 mt-2">
                 <Globe2
                   size={16}
-                  className="text-magenta-700 hover:text-magenta-900 cursor-pointer"
+                  className="text-magenta-800 hover:text-magenta-900 cursor-pointer"
                   onClick={() => onImageClick?.(index)}
                 />
               </div>
@@ -691,7 +691,7 @@ export const RenderMessage: React.FC<MessageProps> = memo(
           <div
             className={`${
               isUser || isUserProxy
-                ? `text-message rounded-2xl bg-light-blue rounded-tr-sm px-4 py-2 ${
+                ? `text-message rounded-2xl bg-blue-400 rounded-tr-sm px-4 py-2 ${
                     parsedContent.plan && parsedContent.plan.length > 0
                       ? "w-[80%]"
                       : "max-w-[80%]"

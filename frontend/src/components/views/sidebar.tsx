@@ -102,12 +102,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {sessions.map((s) => (
         <div key={s.id} className="relative">
           <div
-            className={`group flex items-center justify-between rounded-l p-2 py-1 text-sm ${
+            className={`group flex items-center justify-between p-2 py-1 text-sm ${
               isLoading
                 ? "pointer-events-none opacity-50"
                 : "cursor-pointer hover:bg-tertiary"
             } ${
-              currentSession?.id === s.id ? "  border-accent bg-secondary" : ""
+              currentSession?.id === s.id
+                ? " border-l-2 border-magenta-800 bg-secondary"
+                : ""
             }`}
             onClick={() => !isLoading && onSelectSession(s)}
           >
