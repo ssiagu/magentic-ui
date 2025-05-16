@@ -22,7 +22,9 @@
 
   --color-blue-400: #EDF4FB;
   --color-blue-700: #A0D6FF;
-  --color-blue-900: #0078d4;
+  --color-blue-800: #0078d4;
+  --color-blue-900: #0062ad;
+
   --color-gary-700: #e1e1e1;
   --color-gray-800: #5f5f5f;
 }
@@ -51,7 +53,9 @@
 
   --color-blue-400: #EDF4FB;
   --color-blue-700: #A0D6FF;
-  --color-blue-900: #0078d4;
+  --color-blue-800: #0078d4;
+  --color-blue-900: #0062ad;
+
   --color-gary-700: #e1e1e1;
   --color-gray-800: #5f5f5f;
 }

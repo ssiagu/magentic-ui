@@ -39,11 +39,14 @@ module.exports = {
         tertiary: "var(--color-bg-tertiary)",
         "blue-400": "var(--color-blue-400)",
         "blue-700": "var(--color-blue-700)",
+        "blue-800": "var(--color-blue-800)",
         "blue-900": "var(--color-blue-900)",
+
         "magenta-400": "var(--color-magenta-400)",
         "magenta-700": "var(--color-magenta-700)",
         "magenta-800": "var(--color-magenta-800)",
         "magenta-900": "var(--color-magenta-900)",
+
         "gray-700": "var(--color-gray-700)",
         "gray-800": "var(--color-gray-800)",
       },
@@ -55,11 +58,14 @@ module.exports = {
         message: "var(--color-text-message)",
         "blue-400": "var(--color-blue-400)",
         "blue-700": "var(--color-blue-700)",
+        "blue-800": "var(--color-blue-800)",
         "blue-900": "var(--color-blue-900)",
+
         "magenta-400": "var(--color-magenta-400)",
         "magenta-700": "var(--color-magenta-700)",
         "magenta-800": "var(--color-magenta-800)",
         "magenta-900": "var(--color-magenta-900)",
+
         "gray-700": "var(--color-gray-700)",
         "gray-800": "var(--color-gray-800)",
       },
@@ -69,11 +75,14 @@ module.exports = {
         secondary: "var(--color-border-secondary)",
         "blue-400": "var(--color-blue-400)",
         "blue-700": "var(--color-blue-700)",
+        "blue-800": "var(--color-blue-800)",
         "blue-900": "var(--color-blue-900)",
+
         "magenta-400": "var(--color-magenta-400)",
         "magenta-700": "var(--color-magenta-700)",
         "magenta-800": "var(--color-magenta-800)",
         "magenta-900": "var(--color-magenta-900)",
+
         "gray-700": "var(--color-gray-700)",
         "gray-800": "var(--color-gray-800)",
       },
@@ -83,7 +92,7 @@ module.exports = {
         secondary: "var(--color-text-secondary)",
         "blue-400": "var(--color-blue-400)",
         "blue-700": "var(--color-blue-700)",
-        "blue-900": "var(--color-blue-900)",
+        "blue-800": "var(--color-blue-800)",
         "magenta-400": "var(--color-magenta-400)",
         "magenta-700": "var(--color-magenta-700)",
         "magenta-800": "var(--color-magenta-800)",

@@ -691,7 +691,7 @@ export const RenderMessage: React.FC<MessageProps> = memo(
           <div
             className={`${
               isUser || isUserProxy
-                ? `text-white rounded-2xl bg-blue-900 rounded-tr-sm px-4 py-2 ${
+                ? `text-white rounded-2xl bg-blue-800 rounded-tr-sm px-4 py-2 ${
                     parsedContent.plan && parsedContent.plan.length > 0
                       ? "w-[80%]"
                       : "max-w-[80%]"
