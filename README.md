@@ -3,13 +3,31 @@
 <img src="frontend/src/assets/logo.svg" alt="Magentic-UI Logo" height="100">
 
 # Magentic-UI
-_Complete complex web tasks by combining real-time browser automation with transparent, human-in-the-loop control._
+_Automate your web tasks while you stay in control_
 
 </div>
 
-<img src="./docs/landing.gif" loop=infinite>
+<!-- <img src="./docs/landing.gif" loop=infinite> -->
 
-Magentic-UI is a multi-agent system for automating complex web tasks. An Orchestrator coordinates four agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, all through a collaborative web interface. Here's how you can get started with Magentic-UI.
+<!-- Screenshots -->
+<p align="center">
+  <img src="docs/magui-landing.png" alt="Magentic-UI Landing" width="45%" style="margin:10px;">
+  <img src="docs/magui-coplanning.png" alt="Co-Planning UI" width="45%" style="margin:10px;">
+  <img src="docs/magui-cotasking.png" alt="Co-Tasking UI" width="45%" style="margin:10px;">
+  <img src="docs/magui-actionguard.png" alt="Action Guard UI" width="45%" style="margin:10px;">
+</p>
+
+Magentic-UI is a **research prototype** of an agentic web interface for solving complex web tasks. An Orchestrator coordinates four [AutoGen](https://github.com/microsoft/autogen) agents—WebSurfer, Coder, FileSurfer, and UserProxy—to handle browsing, coding, file management, and user feedback, etc. It is designed with user-agent collaboration in mind and offers a transparent, controllable interface. Key features include:
+
+- 🧑‍🤝‍🧑 **Co-Planning**: Collaboratively create and approve step-by-step plans.
+- 🤝 **Co-Tasking**: Work together to execute complex tasks, with real-time feedback and control.
+- 🛡️ **Action Guards**: Protect sensitive actions with user approvals.
+- 🧠 **Plan Learning**: Learn from previous runs to improve future task automation.
+
+
+Here's how you can get started with Magentic-UI. It's easy to install and run, and you can even build it from source if you prefer.
+
+> **Note**: Before installing, please read the [pre-requisites](#prerequisites) carefully. Magentic-UI requires Docker to run, and if you are on Windows, you will need WSL2. If you are using Mac or Linux, you can skip the WSL2 step.
 
 ```bash
 python3 -m venv .venv
@@ -20,6 +38,15 @@ magentic ui --port 8081
 ```
 
 
+## Table of Contents
+
+- [About Magentic-UI](#about-magentic-ui)
+- [How does it work?](#how-does-it-work)
+- [How to use?](#how-to-use-magentic-ui)
+- [How to use custom clients?](#custom-client-configuration)
+- [How to build from source?](#building-magentic-ui-from-source)
+- [Contributing](#contributing)
+- [Legal Notices](#legal-notices)
 
 
 ## About Magentic-UI
@@ -28,52 +55,35 @@ Magentic-UI is a multi-agent system consisting of 5 agents - an Orchestrator tha
 
 - **WebSurfer**: Navigates the web, retrieves information, and interacts with websites
 - **Coder**: Writes and executes code to solve programming tasks
-- **FileSurfer**: Handles file operations like reading, writing, and navigating documents
+- **FileSurfer**: Handles file operations like reading and navigating documents
 - **UserProxy**: Interfaces with the human user, collecting feedback and approvals
 
-Magentic-UI provides a web interface for users to interact with the system, submit tasks, and monitor progress.
+### How does it work?
 
-## How does it work?
+
 
 <p align="center">
   <img src="./docs/magenticui.png" alt="Magentic-UI" height="400">
 </p>
 
+Magentic-UI’s underlying system is a team of specialized agents adapted from AutoGen’s Magentic-One system. The agents work together to create a modular system:
+- **Orchestrator** is the lead agent, powered by a large language model (LLM), that performs co-planning with the user, decides when to ask the user for feedback, and delegates sub-tasks to the remaining agents to complete.
+- **WebSurfer** is an LLM agent equipped with a web browser that it can control. Given a request by the Orchestrator, it can click, type, scroll, and visit pages in multiple rounds to complete the request from the Orchestrator.
+- **Coder** is an LLM agent equipped with a Docker code-execution container. It can write and execute Python and shell commands and provide a response back to the Orchestrator.
+- **FileSurfer** is an LLM agent equipped with a Docker code-execution container and file-conversion tools from the MarkItDown package. It can locate files in the directory controlled by Magentic-UI, convert files to markdown, and answer questions about them.
+
+To interact with Magentic-UI, users can enter a text message and attach images. In response, Magentic-UI creates a natural-language step-by-step plan with which users can interact through a plan-editing interface. Users can add, delete, edit, regenerate steps, and write follow-up messages to iterate on the plan. While the user editing the plan adds an upfront cost to the interaction, it can potentially save a significant amount of time in the agent executing the plan and increase its chance at success.
+
+The plan is stored inside the Orchestrator and is used to execute the task. For each step of the plan, the Orchestrator determines which of the agents (WebSurfer, Coder, FileSurfer) or the user should complete the step. Once that decision is made, the Orchestrator sends a request to one of the agents or the user and waits for a response. After the response is received, the Orchestrator decides whether that step is complete. If it is, the Orchestrator moves on to the following step. 
+
+Once all steps are completed, the Orchestrator generates a final answer that is presented to the user. If, while executing any of the steps, the Orchestrator decides that the plan is inadequate (for example, because a certain website is unreachable), the Orchestrator can replan with user permission and start executing a new plan.
+
+All intermediate progress steps are clearly displayed to the user. Furthermore, the user can pause the execution of the plan and send additional requests or feedback. The user can also configure through the interface whether agent actions (e.g., clicking a button) require approval.
 
 
-1. **Task Input**: The user submits a task that requires multiple steps to complete.
+## How to Use Magentic-UI
 
-2. **Planning Phase**:
-
-   - The Orchestrator generates a step-by-step plan or retrieves a similar plan from memory
-   - With co-planning enabled, the user can review, modify, and approve the plan before execution begins
-   - Each plan step specifies which specialized agent will perform the action
-
-3. **Execution Phase**:
-
-   - **Step Execution**:
-
-     - The Orchestrator manages step-by-step execution of the approved plan
-     - For each step, the system evaluates if the current step is complete
-     - The system selects the next agent to act and provides instructions
-     - The ApprovalGuard intercepts potentially sensitive actions (file modifications, code execution, website navigation) and may request explicit user approval
-     - The selected agent performs its action and returns a response
-
-   - **Dynamic Replanning**:
-
-     - If progress stalls, the Orchestrator can trigger replanning
-     - Previously completed steps are preserved
-     - A new plan for remaining tasks is generated
-     - With co-planning enabled, the user can review and approve the new plan
-
-   - **Task Completion**:
-     - Once all steps are executed, the Orchestrator synthesizes a final answer
-     - The system can optionally allow for follow-up questions or new tasks
-
-Throughout this process, the user can provide feedback during both planning and execution, making this a truly collaborative system for complex task completion.
-
-
-## Prerequisites
+### Prerequisites
 
 1. Magentic-UI requires Docker as part of normal operation. If running on Windows or Mac, you can use [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
@@ -81,8 +91,9 @@ Throughout this process, the user can provide feedback during both planning and 
 
 3. Provide your OpenAI API key to Magentic-UI by setting the environmental variable `OPENAI_API_KEY`. Alternatively, review the [Custom Client Configuration](#custom-client-configuration) section below.
 
+4. You need at least Python 3.10 installed.
 
-## PyPI Installation 
+### PyPI Installation 
 
 Magentic-UI is available on PyPI. We recommend using a virtual environment to avoid conflicts with other packages.
 
@@ -100,7 +111,7 @@ uv venv --python=3.12 .venv
 uv pip install magentic-ui
 ```
 
-## Running Magentic-UI
+### Running Magentic-UI
 
 To run Magentic-UI, make sure that Docker is running, then run the following command:
 
@@ -112,7 +123,7 @@ The first time that you run this command, it will take a while to build the Dock
 
 Once the server is running, you can access the UI at <http://localhost:8081>.
 
-## Custom Client Configuration
+### Custom Client Configuration
 
 If you want to use a different OpenAI key, or if you want to configure use with Azure OpenAI, you can do so by creating a `config.yaml` file in the `appdir` folder (typically `~/.magentic_ui`).
 
@@ -139,7 +150,6 @@ coder_client: *client
 web_surfer_client: *client
 file_surfer_client: *client
 action_guard_client: *client
-user_proxy_client: *client
 ```
 
 The corresponding configuration for Azure OpenAI is:
@@ -174,15 +184,14 @@ coder_client: *client
 web_surfer_client: *client
 file_surfer_client: *client
 action_guard_client: *client
-user_proxy_client: *client
 ```
 
 
-## Building Magentic-UI from source
+### Building Magentic-UI from source
 
-### 1. Make sure the above prerequisites are installed, and that Docker is running.
+#### 1. Make sure the above prerequisites are installed, and that Docker is running.
 
-### 2. Clone the repository to your local machine:
+#### 2. Clone the repository to your local machine:
 
 ```bash
 git clone https://github.com/microsoft/magentic-ui.git
@@ -196,7 +205,7 @@ git clone git@github.com:microsoft/magentic-ui.git
 cd magentic-ui
 ```
 
-### 3. Install Magentic-UI's dependencies with uv:
+#### 3. Install Magentic-UI's dependencies with uv:
 
 ```bash
 # install uv through https://docs.astral.sh/uv/getting-started/installation/
@@ -205,7 +214,7 @@ uv sync --all-extras
 source .venv/bin/activate
 ```
 
-### 4. Build the frontend:
+#### 4. Build the frontend:
 
 First make sure to have install node:
 
@@ -226,19 +235,14 @@ yarn build
 cd ..
 ```
 
-### 5. Run Magentic-UI, as usual.
+#### 5. Run Magentic-UI, as usual.
 
 ```bash
 magentic ui --port 8081
 ```
 
-For hosting the Magentic-UI, run the command:
 
-```bash
-magentic ui --port 8081 --host 0.0.0.0
-```
-
-### Running the UI from source
+#### Running the UI from source
 
 If you are working on the UI, you can run the frontend in development mode so that it will automatically update when you make changes.
 
@@ -267,44 +271,6 @@ magentic ui --port 8081
 ```
 
 The frontend from source will be available at <http://localhost:8000>, and the compiled frontend will be available at <http://localhost:8081>.
-
-## Running the web surfer container directly
-
-First, ensure it is built. Youc an do this by running Magentic UI once beforehand, or by running the following commands:
-
-```bash
-cd src/magentic_ui/docker/magentic-ui-browser-docker
-docker build -t magentic-ui-vnc-browser:latest .
-```
-
-Run it:
-
-```bash
-docker run --rm \
-    -p 9000:9000 \
-    -p 9001:9001 \
-    -v $(pwd):/workspace \
-    -e PLAYWRIGHT_WS_PATH=/ws \
-    -e PLAYWRIGHT_PORT=9000 \
-    -e NO_VNC_PORT=9001 \
-    magentic-ui-vnc-browser:latest
-```
-
-Open a browser and navigate to <http://localhost:9001/vnc.html> to access the VNC viewer.
-
-You'll see a black screen. The browser only launched when needed, so lets run a script to open a page.
-
-```python
-from playwright.sync_api import sync_playwright
-import time
-
-with sync_playwright() as p:
-    browser = p.chromium.connect("ws://localhost:9000/ws")
-    page = browser.new_page()
-    page.goto("https://www.microsoft.com/en-us/research/lab/ai-frontiers/")
-    time.sleep(60)
-```
-
 
 ## Contributing
 

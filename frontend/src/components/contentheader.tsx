@@ -95,7 +95,7 @@ const ContentHeader = ({
 
           {/* Settings Button */}
           <div className="text-primary">
-            <Tooltip title="Open application settings">
+            <Tooltip title="Settings">
               <Button
                 variant="tertiary"
                 size="sm"
