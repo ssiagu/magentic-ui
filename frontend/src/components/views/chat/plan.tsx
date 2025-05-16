@@ -221,7 +221,7 @@ const PlanView: React.FC<PlanProps> = ({
                                 Step {index + 1}
                               </span>
                             </div>
-                            <div className="border p-1 px-2 mt-2 flex-1 rounded bg-magenta-400 border-magenta-400">
+                            <div className="border p-1 px-2 mt-2 flex-1 rounded bg-[var(--color-bg-secondary)] border-[var(--color-border-primary)]">
                               <div className="flex items-center">
                                 {
                                   <AutoResizeTextarea
@@ -232,7 +232,7 @@ const PlanView: React.FC<PlanProps> = ({
                                     ) => updateDetails(index, e.target.value)}
                                     onBlur={() => setFocusedIndex(null)}
                                     autoFocus
-                                    className={`flex-1 p-1.5 min-w-[100px] max-w-full resize-y bg-magenta-400 text-message ${
+                                    className={`flex-1 p-1.5 min-w-[100px] max-w-full resize-y bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] ${
                                       !item.details.trim()
                                         ? "border border-orange-300"
                                         : ""

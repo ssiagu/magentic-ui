@@ -383,12 +383,12 @@ const RenderStepExecution: React.FC<RenderStepExecutionProps> = memo(
             </div>
           )}
         <div
-          className={`relative border-2 border-transparent hover:border-magenta-600 rounded-lg p-2 cursor-pointer overflow-hidden bg-magenta-400`}
+          className={`relative border-2 border-transparent hover:border-gray-300 rounded-lg p-2 cursor-pointer overflow-hidden bg-secondary`}
           onClick={handleToggle}
         >
           <div className="flex items-center w-full">
             <button
-              className="flex-none flex items-center justify-center w-8 h-8 rounded-full bg-magenta-400 hover:bg-magenta-600 transition-colors"
+              className="flex-none flex items-center justify-center w-8 h-8 rounded-full bg-secondary transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
                 handleToggle();
@@ -400,13 +400,13 @@ const RenderStepExecution: React.FC<RenderStepExecutionProps> = memo(
               }
             >
               {isExpanded ? (
-                <ChevronDown size={16} className="text-message" />
+                <ChevronDown size={16} className="text-primary" />
               ) : (
-                <ChevronRight size={16} className="text-message" />
+                <ChevronRight size={16} className="text-primary" />
               )}
             </button>
             <div className="flex-1 mx-2">
-              <div className="font-semibold text-message">
+              <div className="font-semibold text-primary">
                 Step {content.index + 1}: {content.title}
               </div>
             </div>
@@ -691,7 +691,7 @@ export const RenderMessage: React.FC<MessageProps> = memo(
           <div
             className={`${
               isUser || isUserProxy
-                ? `text-message rounded-2xl bg-blue-400 rounded-tr-sm px-4 py-2 ${
+                ? `text-white rounded-2xl bg-blue-900 rounded-tr-sm px-4 py-2 ${
                     parsedContent.plan && parsedContent.plan.length > 0
                       ? "w-[80%]"
                       : "max-w-[80%]"
