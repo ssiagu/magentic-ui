@@ -132,7 +132,7 @@ export const LearnPlanButton: React.FC<LearnPlanButtonProps> = ({
         disabled={!sessionId || !effectiveUserId}
         className={`inline-flex items-center px-3 py-1.5 rounded-md transition-colors ${
           darkMode === "dark"
-            ? "bg-blue-700/20 text-blue-400 border border-blue-700/50 hover:bg-blue-700/30 hover:border-blue-500"
+            ? "bg-blue-700/20 text-blue-400 border border-blue-400/50 hover:bg-blue-700/30 hover:border-blue-700"
             : "bg-blue-400 text-blue-800 border border-blue-200 hover:bg-blue-100 hover:border-blue-300"
         } ${
           !sessionId || !effectiveUserId
@@ -140,7 +140,11 @@ export const LearnPlanButton: React.FC<LearnPlanButtonProps> = ({
             : "cursor-pointer"
         }`}
       >
-        <LightBulbIcon className="h-4 w-4 mr-1.5 text-blue-800" />
+        <LightBulbIcon
+          className={`h-4 w-4 mr-1.5 ${
+            darkMode === "dark" ? "text-blue-400" : "text-blue-800"
+          }`}
+        />
         <span className="text-sm font-medium">Learn Plan</span>
       </button>
     </Tooltip>
