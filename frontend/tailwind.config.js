@@ -44,9 +44,9 @@ module.exports = {
 
         "magenta-400": "var(--color-magenta-400)",
         "magenta-700": "var(--color-magenta-700)",
-        "magenta-800": "var(--color-magenta-800)",
-        "magenta-900": "var(--color-magenta-900)",
-
+        "magenta-800": "var(--color-magenta-900)",
+        "magenta-900": "var(--color-magenta-800)",
+        "magenta-1000": "var(--color-magenta-1000)",
         "gray-700": "var(--color-gray-700)",
         "gray-800": "var(--color-gray-800)",
       },

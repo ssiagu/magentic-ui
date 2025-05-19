@@ -1,10 +1,11 @@
 .dark {
   --color-bg-primary: #1a1a1a;
-  --color-bg-secondary: #2a2a2a;
+  --color-bg-secondary: #a88da841;
   --color-bg-light: #3a3a3a;
   --color-bg-tertiary: #444444;
   --color-bg-opposite: #edf2f7;
   --color-bg-white: #ffffff;
+  --color-bg-dark: #1a1a1a;
   --color-bg-accent: #777777;
   --color-text-primary: #ffffff;
   --color-text-secondary: #e5e5e58f;
@@ -31,11 +32,12 @@
 
 .light {
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #edf2f7;
+  --color-bg-secondary: #f1e9f1;
   --color-bg-light: #f9fafb;
-  --color-bg-tertiary: #f3f6f9;
+  --color-bg-tertiary: #a6a4a631;
   --color-bg-opposite: #2a2a2a;
   --color-bg-white: #ffffff;
+  --color-bg-dark: #1a1a1a;
   --color-bg-accent: #444444;
   --color-text-primary: #000000;
   --color-text-secondary: #4a5568;

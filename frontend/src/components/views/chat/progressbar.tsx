@@ -60,7 +60,7 @@ export default function ProgressBar({
                   <div className="relative w-full h-full">
                     {/* Completed section - full width when hasFinalAnswer */}
                     <div
-                      className="absolute bg-blue-800 h-1 rounded-full transition-all duration-300"
+                      className="absolute bg-green-600 h-1 rounded-full transition-all duration-300"
                       style={{
                         width: hasFinalAnswer
                           ? "100%"
@@ -194,7 +194,7 @@ export default function ProgressBar({
                               ${
                                 hasFinalAnswer ||
                                 index < adjustedProgress.currentStep
-                                  ? "bg-blue-800 text-white"
+                                  ? "bg-green-600 text-white"
                                   : index === adjustedProgress.currentStep
                                   ? "bg-magenta-800 text-white"
                                   : "bg-gray-400 text-white"
@@ -221,7 +221,7 @@ export default function ProgressBar({
                 {/* Status text */}
                 <div className="text-sm text-gray-500 mt-5 text-center">
                   {hasFinalAnswer ? (
-                    <span className="text-blue-800 font-medium">
+                    <span className="text-green-600 font-medium">
                       Task Completed
                     </span>
                   ) : adjustedProgress.plan?.task ? (

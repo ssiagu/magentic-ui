@@ -99,7 +99,7 @@ const ContentHeader = ({
               <Button
                 variant="tertiary"
                 size="sm"
-                icon={<Settings className="h-6 w-6" />}
+                icon={<Settings className="h-8 w-8" />}
                 onClick={() => setIsSettingsOpen(true)}
                 className="!px-0 transition-colors hover:text-accent"
                 aria-label="Settings"

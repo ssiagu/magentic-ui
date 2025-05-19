@@ -785,7 +785,7 @@ const ChatInput = React.forwardRef<{ focus: () => void }, ChatInputProps>(
                   <button
                     type="button"
                     onClick={handlePause}
-                    className="bg-blue-800 hover:bg-blue-900 text-white rounded flex justify-center items-center w-11 h-9 transition duration-300"
+                    className="bg-magenta-800 hover:bg-magenta-900 text-white rounded flex justify-center items-center w-11 h-9 transition duration-300"
                   >
                     <PauseCircleIcon className="h-6 w-6" />
                   </button>

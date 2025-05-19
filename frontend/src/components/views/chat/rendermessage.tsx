@@ -96,9 +96,9 @@ const getStepIcon = (
   is_step_failed?: boolean
 ) => {
   if (is_step_failed)
-    return <AlertTriangle size={16} className="text-orange-500" />;
+    return <AlertTriangle size={16} className="text-magenta-800" />;
   if (is_step_repeated)
-    return <AlertTriangle size={16} className="text-red-500" />;
+    return <AlertTriangle size={16} className="text-magenta-800" />;
   if (status === "completed")
     return <CheckCircle size={16} className="text-magenta-800" />;
   if (status === "current" && runStatus === "active")
@@ -106,7 +106,7 @@ const getStepIcon = (
   if (status === "upcoming")
     return <Clock size={16} className="text-gray-400" />;
   if (status === "failed")
-    return <AlertTriangle size={16} className="text-red-500" />;
+    return <AlertTriangle size={16} className="text-magenta-500" />;
   return null;
 };
 
@@ -574,7 +574,7 @@ const RenderUserMessage: React.FC<{
           {attachedFiles.map((file, index) => (
             <div
               key={index}
-              className="flex items-center gap-1 bg-blue-600 rounded px-2 py-1 text-xs"
+              className="flex items-center gap-1  rounded px-2 py-1 text-xs"
               title={file.name}
             >
               {file.type.startsWith("image") ? (
@@ -691,7 +691,7 @@ export const RenderMessage: React.FC<MessageProps> = memo(
           <div
             className={`${
               isUser || isUserProxy
-                ? `text-white rounded-2xl bg-blue-800 rounded-tr-sm px-4 py-2 ${
+                ? `text-primary rounded-2xl bg-tertiary rounded-tr-sm px-4 py-2 ${
                     parsedContent.plan && parsedContent.plan.length > 0
                       ? "w-[80%]"
                       : "max-w-[80%]"
