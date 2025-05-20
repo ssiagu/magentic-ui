@@ -3,9 +3,13 @@ from playwright.async_api import async_playwright
 from urllib.parse import urlparse
 import asyncio
 import tiktoken
+import warnings
 from dataclasses import dataclass
 from loguru import logger
 from ..tools import PlaywrightController
+
+# Suppress tiktoken warnings about models not found
+warnings.filterwarnings("ignore", message=".*not found.*", module="tiktoken")
 
 
 @dataclass
