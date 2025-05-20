@@ -3,10 +3,14 @@ from typing import Any, Optional
 import logging
 import os
 import tempfile
+import warnings
 
 import tiktoken
 from markitdown import MarkItDown  # type: ignore
 from playwright.async_api import Page
+
+# Suppress tiktoken warnings about models not found
+warnings.filterwarnings("ignore", message=".*not found.*", module="tiktoken")
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +95,7 @@ class WebpageTextUtilsPlaywright:
             if max_tokens == -1:
                 return pdf_content
 
-            tokenizer = tiktoken.get_encoding("cl100k_base")
+            tokenizer = tiktoken.encoding_for_model("gpt-4o")
             tokens = tokenizer.encode(pdf_content)
             limited_content = tokenizer.decode(tokens[:max_tokens])
 
@@ -109,7 +113,7 @@ class WebpageTextUtilsPlaywright:
         # Tokenize the text content and limit to max_tokens
         if max_tokens == -1:
             return text_content
-        tokenizer = tiktoken.get_encoding("cl100k_base")
+        tokenizer = tiktoken.encoding_for_model("gpt-4o")
         tokens = tokenizer.encode(text_content)
         limited_text_content = tokenizer.decode(tokens[:max_tokens])
 
