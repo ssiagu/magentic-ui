@@ -3,14 +3,10 @@ from typing import Any, Optional
 import logging
 import os
 import tempfile
-import warnings
 
 import tiktoken
 from markitdown import MarkItDown  # type: ignore
 from playwright.async_api import Page
-
-# Suppress tiktoken warnings about models not found
-warnings.filterwarnings("ignore", message=".*not found.*", module="tiktoken")
 
 logger = logging.getLogger(__name__)
 

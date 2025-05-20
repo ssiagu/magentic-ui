@@ -5,7 +5,6 @@ import logging
 import os
 import re
 import time
-import warnings
 from datetime import datetime
 import tldextract
 from typing import (
@@ -28,9 +27,6 @@ from urllib.parse import quote_plus
 from pydantic import Field
 import PIL.Image
 import tiktoken
-
-# Suppress tiktoken warnings about models not found
-warnings.filterwarnings("ignore", message=".*not found.*", module="tiktoken")
 from autogen_agentchat.agents import BaseChatAgent
 from autogen_agentchat.base import Response
 from autogen_agentchat.messages import (
