@@ -146,7 +146,10 @@ Once the server is running, you can access the UI at <http://localhost:8081>.
 
 ### Custom Client Configuration
 
-If you want to use a different OpenAI key, or if you want to configure use with Azure OpenAI, you can do so by creating a `config.yaml` file in the `appdir` folder (typically `~/.magentic_ui`).
+If you want to use a different OpenAI key, or if you want to configure use with Azure OpenAI or Ollama, you can do so inside the UI by navigating to settings (top right icon) and changing model configuration with the format of the `config.yaml` file below. You can also create a `config.yaml` and import it inside the UI or point Magentic-UI to its path at startup time: 
+```bash
+magentic ui --config path/to/config.yaml
+```
 
 An example `config.yaml` for OpenAI is given below:
 
