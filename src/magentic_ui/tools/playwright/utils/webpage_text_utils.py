@@ -91,7 +91,7 @@ class WebpageTextUtilsPlaywright:
             if max_tokens == -1:
                 return pdf_content
 
-            tokenizer = tiktoken.encoding_for_model("gpt-4o")
+            tokenizer = tiktoken.get_encoding("cl100k_base")
             tokens = tokenizer.encode(pdf_content)
             limited_content = tokenizer.decode(tokens[:max_tokens])
 
@@ -109,7 +109,7 @@ class WebpageTextUtilsPlaywright:
         # Tokenize the text content and limit to max_tokens
         if max_tokens == -1:
             return text_content
-        tokenizer = tiktoken.encoding_for_model("gpt-4o")
+        tokenizer = tiktoken.get_encoding("cl100k_base")
         tokens = tokenizer.encode(text_content)
         limited_text_content = tokenizer.decode(tokens[:max_tokens])
 
