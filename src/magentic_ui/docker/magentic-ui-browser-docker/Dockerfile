@@ -3,7 +3,7 @@ FROM node:lts-slim
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies, noVNC, and set up directories in a single layer
+# Install dependencies
 RUN apt-get update && apt-get install -y \
     git \
     xvfb \
@@ -19,17 +19,21 @@ RUN apt-get update && apt-get install -y \
     python3-xdg \
     x11-xserver-utils \
     --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/* \
-    && git clone --depth 1 --branch v1.6.0 https://github.com/novnc/noVNC.git /usr/local/novnc \
-    && git clone --depth 1 --branch v0.13.0 https://github.com/novnc/websockify /usr/local/novnc/utils/websockify
+    && rm -rf /var/lib/apt/lists/*
+
+# Install noVNC - keep this in a separate layer for better caching
+RUN mkdir -p /usr/local/novnc && \
+    mkdir -p /usr/local/novnc/utils/websockify
 
 # Set up working directory
 WORKDIR /app
 
-# Install Playwright and browsers in a single layer
+# Install Playwright
 COPY package.json package-lock.json* ./
-RUN npm ci \
-    && npx playwright@1.51 install --with-deps chromium
+RUN npm ci
+
+# Install browsers with dependencies 
+RUN npx playwright@1.51 install --with-deps chromium
 
 # Set up configurations and copy files
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
