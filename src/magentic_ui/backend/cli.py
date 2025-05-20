@@ -7,7 +7,7 @@ from typing import Optional
 from pathlib import Path
 import logging
 
-from .version import VERSION
+from ..version import VERSION
 from .._docker import (
     check_docker_running,
     check_browser_image,
@@ -16,7 +16,7 @@ from .._docker import (
     build_python_image,
 )
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.ERROR)
 
 app = typer.Typer()
 
