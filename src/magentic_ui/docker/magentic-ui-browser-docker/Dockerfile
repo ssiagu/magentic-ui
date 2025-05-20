@@ -3,7 +3,7 @@ FROM node:lts-slim
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies
+# Install dependencies, noVNC, and set up directories in a single layer
 RUN apt-get update && apt-get install -y \
     git \
     xvfb \
@@ -19,50 +19,39 @@ RUN apt-get update && apt-get install -y \
     python3-xdg \
     x11-xserver-utils \
     --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install noVNC
-RUN git clone --depth 1 --branch v1.6.0 https://github.com/novnc/noVNC.git /usr/local/novnc \
+    && rm -rf /var/lib/apt/lists/* \
+    && git clone --depth 1 --branch v1.6.0 https://github.com/novnc/noVNC.git /usr/local/novnc \
     && git clone --depth 1 --branch v0.13.0 https://github.com/novnc/websockify /usr/local/novnc/utils/websockify
 
 # Set up working directory
 WORKDIR /app
 
-# Install Playwright
+# Install Playwright and browsers in a single layer
 COPY package.json package-lock.json* ./
-RUN npm install .
+RUN npm ci \
+    && npx playwright@1.51 install --with-deps chromium
 
-# Install browsers with dependencies
-RUN npx playwright@1.51 install --with-deps chromium
-
-# Set up supervisord configuration
+# Set up configurations and copy files
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-# Copy scripts
 COPY start.sh /app/start.sh
 COPY playwright-server.js /app/playwright-server.js
 COPY x11-setup.sh /app/x11-setup.sh
-
-# Make scripts executable
-RUN chmod +x /app/start.sh /app/x11-setup.sh
-
-# Create a simple openbox configuration to only show the browser window
-RUN mkdir -p /root/.config/openbox
 COPY openbox-rc.xml /root/.config/openbox/rc.xml
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+
+# Set up directories and permissions in a single layer
+RUN chmod +x /app/start.sh /app/x11-setup.sh /usr/local/bin/entrypoint.sh \
+    && mkdir -p /root/.config/openbox /workspace
+
+# Set environment variables
+ENV PLAYWRIGHT_WS_PATH="default" \
+    DISPLAY=:99
 
 # Expose ports: noVNC web interface, and Playwright server
 EXPOSE 6080 37367
 
-ENV PLAYWRIGHT_WS_PATH="default"
-
-# Set the display environment variable
-ENV DISPLAY=:99
-
-RUN mkdir -p /workspace
+# Set the working directory for the application
 WORKDIR /workspace
-
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 

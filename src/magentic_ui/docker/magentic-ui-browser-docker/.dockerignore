@@ -1,0 +1,38 @@
+# Ignore git files
+.git
+.gitignore
+
+# Ignore node modules (if any exist in the build context)
+node_modules
+
+# Ignore any build artifacts or cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Ignore editor files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Other common exclusions
+*.log
+.DS_Store
