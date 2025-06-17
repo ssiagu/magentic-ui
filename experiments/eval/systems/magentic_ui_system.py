@@ -23,6 +23,7 @@ from magentic_ui.types import CheckpointEvent
 from magentic_ui.agents import WebSurfer, CoderAgent, FileSurfer
 from magentic_ui.teams import GroupChat
 from magentic_ui.tools.playwright.browser import VncDockerPlaywrightBrowser
+from magentic_ui.tools.playwright.browser import LocalPlaywrightBrowser
 from magentic_ui.tools.playwright.browser.utils import get_available_port
 
 
@@ -61,6 +62,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         endpoint_config_coder (Optional[Dict]): Coder agent model client config.
         endpoint_config_file_surfer (Optional[Dict]): FileSurfer agent model client config.
         dataset_name (str): Name of the evaluation dataset (e.g., "Gaia").
+        use_local_browser (bool): If True, use the local browser.
     """
 
     def __init__(
@@ -72,6 +74,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         name: str = "MagenticUIAutonomousSystem",
         dataset_name: str = "Gaia",
         web_surfer_only: bool = False,
+        use_local_browser: bool = False,
     ):
         super().__init__(name)
         self.candidate_class = WebVoyagerCandidate
@@ -81,6 +84,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         self.endpoint_config_file_surfer = endpoint_config_file_surfer
         self.web_surfer_only = web_surfer_only
         self.dataset_name = dataset_name
+        self.use_local_browser = use_local_browser
 
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
@@ -153,16 +157,19 @@ class MagenticUIAutonomousSystem(BaseSystem):
             )
 
             # launch the browser
-            playwright_port, socket = get_available_port()
-            novnc_port, socket_vnc = get_available_port()
-            socket.close()
-            socket_vnc.close()
-            browser = VncDockerPlaywrightBrowser(
-                bind_dir=Path(output_dir),
-                playwright_port=playwright_port,
-                novnc_port=novnc_port,
-                inside_docker=False,
-            )
+            if self.use_local_browser:
+                browser = LocalPlaywrightBrowser()
+            else:
+                playwright_port, socket = get_available_port()
+                novnc_port, socket_vnc = get_available_port()
+                socket.close()
+                socket_vnc.close()
+                browser = VncDockerPlaywrightBrowser(
+                    bind_dir=Path(output_dir),
+                    playwright_port=playwright_port,
+                    novnc_port=novnc_port,
+                    inside_docker=False,
+                )
             browser_location_log = LogEventSystem(
                 source="browser",
                 content=f"Browser at novnc port {novnc_port} and playwright port {playwright_port} launched",
