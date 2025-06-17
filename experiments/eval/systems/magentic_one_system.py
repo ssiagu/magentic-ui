@@ -4,26 +4,19 @@ import os
 import aiofiles
 import logging
 import datetime
-from pathlib import Path
 from PIL import Image
 from pydantic import BaseModel
 from typing import List, Dict, Any, Tuple
 from autogen_core.models import ChatCompletionClient
 from autogen_core import Image as AGImage
-from autogen_agentchat.base import TaskResult, ChatAgent
+from autogen_agentchat.base import TaskResult
 from autogen_agentchat.messages import (
     MultiModalMessage,
     TextMessage,
 )
-from autogen_agentchat.conditions import TimeoutTermination
-from magentic_ui import OrchestratorConfig
 from magentic_ui.eval.basesystem import BaseSystem
 from magentic_ui.eval.models import BaseTask, BaseCandidate, WebVoyagerCandidate
 from magentic_ui.types import CheckpointEvent
-from magentic_ui.agents import WebSurfer, CoderAgent, FileSurfer
-from magentic_ui.teams import GroupChat
-from magentic_ui.tools.playwright.browser import VncDockerPlaywrightBrowser
-from magentic_ui.tools.playwright.browser.utils import get_available_port
 from autogen_ext.teams.magentic_one import MagenticOne
 
 
@@ -96,30 +89,9 @@ class MagenticOneSystem(BaseSystem):
             messages_so_far: List[LogEventSystem] = []
 
             task_question: str = task.question
-            # Adapted from MagenticOne. Minor change is to allow an explanation of the final answer before the final answer.
-            FINAL_ANSWER_PROMPT = f"""
-            output a FINAL ANSWER to the task.
-
-            The real task is: {task_question}
-
-
-            To output the final answer, use the following template: [any explanation for final answer] FINAL ANSWER: [YOUR FINAL ANSWER]
-            Don't put your answer in brackets or quotes. 
-            Your FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings.
-            ADDITIONALLY, your FINAL ANSWER MUST adhere to any formatting instructions specified in the original question (e.g., alphabetization, sequencing, units, rounding, decimal places, etc.)
-            If you are asked for a number, express it numerically (i.e., with digits rather than words), don't use commas, and don't include units such as $ or percent signs unless specified otherwise.
-            If you are asked for a string, don't use articles or abbreviations (e.g. for cities), unless specified otherwise. Don't output any final sentence punctuation such as '.', '!', or '?'.
-            If you are asked for a comma separated list, apply the above rules depending on whether the elements are numbers or strings.
-            You must answer the question and provide a smart guess if you are unsure. Provide a guess even if you have no idea about the answer.
-            """
-
-
-            model_client = ChatCompletionClient.load_component(
-                self.model_client_config
-            )
+            model_client = ChatCompletionClient.load_component(self.model_client_config)
 
             m1_agent = MagenticOne(client=model_client)
-
 
             # Step 3: Prepare the task message
             answer: str = ""

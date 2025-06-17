@@ -6,7 +6,7 @@ import datetime
 from magentic_ui.eval.benchmarks.webvoyager.webvoyager import DynamicMemoryType
 from typing import Optional, Dict, Any, Callable
 from magentic_ui.eval.core import run_evaluate_benchmark_func, evaluate_benchmark_func
-from systems.magentic_ui_sim_user_system import MagenticUISimUserSystem
+from systems.magentic_ui_system import MagenticUIAutonomousSystem
 from magentic_ui.eval.benchmarks import WebVoyagerBenchmark
 from magentic_ui.eval.benchmark import Benchmark
 from autogen_core.models import ChatCompletionClient
@@ -160,18 +160,16 @@ def run_system_sim_user(args: argparse.Namespace, system_name: str) -> None:
     """
     config = load_config(args.config)
 
-    system = MagenticUISimUserSystem(
-        simulated_user_type=args.simulated_user_type,
+    system = MagenticUIAutonomousSystem(
         endpoint_config_orch=config.get("orchestrator_client") if config else None,
         endpoint_config_websurfer=config.get("web_surfer_client") if config else None,
         endpoint_config_coder=config.get("coder_client") if config else None,
         endpoint_config_file_surfer=config.get("file_surfer_client")
         if config
         else None,
-        endpoint_config_user_proxy=config.get("user_proxy_client") if config else None,
         web_surfer_only=args.web_surfer_only,
-        how_helpful_user_proxy=args.how_helpful_user_proxy,
         dataset_name=args.dataset,
+        use_local_browser=args.use_local_browser,
     )
 
     run_system_evaluation(args, system, system_name, config)
@@ -257,21 +255,35 @@ def main() -> None:
         help="Run only the web surfer agent",
     )
     parser.add_argument(
+        "--use-local-browser",
+        type=bool,
+        default=False,
+        help="Use local browser",
+    )
+    parser.add_argument(
         "--redo-eval",
         action="store_true",
         default=False,
         help="Redo evaluation even if results exist (default: False)",
+    )
+    parser.add_argument(
+        "--system-name",
+        type=str,
+        default="MagenticUI",
+        help="Name of the system to run",
     )
 
     args = parser.parse_args()
 
     # Determine system name based on arguments
 
-    system_name = "MagenticUI"
+    system_name = args.system_name
     if args.simulated_user_type != "none":
         system_name += f"_{args.simulated_user_type}_{args.how_helpful_user_proxy}"
     if args.web_surfer_only:
         system_name += "_web_surfer_only"
+    if args.dynamic_memory_type != DynamicMemoryType.NONE.value:
+        system_name += f"_{args.dynamic_memory_type}"
 
     # Save experiment args
     save_experiment_args(args, system_name)

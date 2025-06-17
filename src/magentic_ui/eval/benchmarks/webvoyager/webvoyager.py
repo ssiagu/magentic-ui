@@ -218,9 +218,13 @@ class WebVoyagerBenchmark(Benchmark):
         """
         # if split not in ["webvoyager", "gaia"]:
         #     raise ValueError("split must be 'webvoyager' or 'gaia'")
-        return [
+        split_tasks = [
             task_id for task_id, task in self.tasks.items() if re.match(split, task.set)
         ]
+        print(
+            f"Found {len(split_tasks)} tasks in split {split} out of {len(self.tasks)} total tasks"
+        )
+        return split_tasks
 
     def evaluator(
         self, task: AllTaskTypes, candidate: AllCandidateTypes

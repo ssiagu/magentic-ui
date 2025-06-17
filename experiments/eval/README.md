@@ -26,6 +26,11 @@ python experiments/eval/run.py --current-dir . --dataset WebGames --split test  
 python experiments/eval/run.py  --current-dir . --dataset WebVoyager --split webvoyager  --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/config.yaml --web-surfer-only true --mode run
 ```
 
+To run with awm (after generating files)
+```bash
+python experiments/eval/run.py  --current-dir . --dataset WebVoyager --split webvoyager/validation/Huggingface  --run-id 1 --simulated-user-type none --parallel 10 --config experiments/endpoint_configs/config.yaml --web-surfer-only true --use-local-browser true  --mode run --dynamic-memory-type awm --dynamic-memory-file runs/MagenticUI_web_surfer_only/WebVoyager/webvoyager/train/Huggingface/1/workflows/common_workflows.txt
+```
+
 ## GAIA
 
 ### Simulated User

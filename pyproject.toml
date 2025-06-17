@@ -39,6 +39,7 @@ dependencies = [
     "pyyaml",
     "html2text",
     "psutil",
+    "scipy>=1.15.3",
 ]
 
 [project.optional-dependencies]

@@ -7,7 +7,7 @@ import datetime
 from pathlib import Path
 from PIL import Image
 from pydantic import BaseModel
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from autogen_core.models import ChatCompletionClient
 from autogen_core import Image as AGImage
 from autogen_agentchat.base import TaskResult, ChatAgent
@@ -65,12 +65,20 @@ class MagenticUIAutonomousSystem(BaseSystem):
         use_local_browser (bool): If True, use the local browser.
     """
 
+    default_client_config = {
+        "provider": "OpenAIChatCompletionClient",
+        "config": {
+            "model": "gpt-4o-2024-08-06",
+        },
+        "max_retries": 10,
+    }
+
     def __init__(
         self,
-        endpoint_config_orch: Dict[str, Any],
-        endpoint_config_websurfer: Dict[str, Any],
-        endpoint_config_coder: Dict[str, Any],
-        endpoint_config_file_surfer: Dict[str, Any],
+        endpoint_config_orch: Optional[Dict[str, Any]] = default_client_config,
+        endpoint_config_websurfer: Optional[Dict[str, Any]] = default_client_config,
+        endpoint_config_coder: Optional[Dict[str, Any]] = default_client_config,
+        endpoint_config_file_surfer: Optional[Dict[str, Any]] = default_client_config,
         name: str = "MagenticUIAutonomousSystem",
         dataset_name: str = "Gaia",
         web_surfer_only: bool = False,
@@ -158,7 +166,12 @@ class MagenticUIAutonomousSystem(BaseSystem):
 
             # launch the browser
             if self.use_local_browser:
-                browser = LocalPlaywrightBrowser()
+                browser = LocalPlaywrightBrowser(headless=True)
+                browser_location_log = LogEventSystem(
+                    source="browser",
+                    content="Browser launched locally",
+                    timestamp=datetime.datetime.now().isoformat(),
+                )
             else:
                 playwright_port, socket = get_available_port()
                 novnc_port, socket_vnc = get_available_port()
@@ -170,11 +183,11 @@ class MagenticUIAutonomousSystem(BaseSystem):
                     novnc_port=novnc_port,
                     inside_docker=False,
                 )
-            browser_location_log = LogEventSystem(
-                source="browser",
-                content=f"Browser at novnc port {novnc_port} and playwright port {playwright_port} launched",
-                timestamp=datetime.datetime.now().isoformat(),
-            )
+                browser_location_log = LogEventSystem(
+                    source="browser",
+                    content=f"Browser at novnc port {novnc_port} and playwright port {playwright_port} launched",
+                    timestamp=datetime.datetime.now().isoformat(),
+                )
             messages_so_far.append(browser_location_log)
 
             # CREATE AGENTS
