@@ -1,5 +1,8 @@
 from .task_team import get_task_team
-from .teams.orchestrator.orchestrator_config import OrchestratorConfig
+from .teams.orchestrator.orchestrator_config import (
+    OrchestratorConfig,
+    DynamicMemoryType,
+)
 from .input_func import AsyncInputFunc, InputFuncType, InputRequestType, SyncInputFunc
 from .approval_guard import (
     BaseApprovalGuard,
@@ -15,6 +18,7 @@ ABOUT = "Magentic-UI - A web browsing assistant."
 __all__ = [
     "get_task_team",
     "OrchestratorConfig",
+    "DynamicMemoryType",
     "AsyncInputFunc",
     "InputFuncType",
     "InputRequestType",

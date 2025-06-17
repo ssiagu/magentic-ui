@@ -1,6 +1,12 @@
 from pydantic import BaseModel
 from ...types import Plan
 from typing import List, Literal, Optional, Union
+from enum import Enum
+
+
+class DynamicMemoryType(str, Enum):
+    NONE = "none"
+    AWM = "awm"
 
 
 class OrchestratorConfig(BaseModel):
@@ -20,6 +26,7 @@ class OrchestratorConfig(BaseModel):
         do_bing_search (bool): Flag to determine if Bing search should be used to come up with information for the plan. Default: False.
         final_answer_prompt (str, optional): Prompt for the final answer. Should be a string that can be formatted with the {task} variable.
         model_context_token_limit (int, optional): The maximum number of tokens that that can be sent to the model in a single request.
+        include_dynamic_memory (bool, optional): Whether to include dynamic memory in the orchestrator. Default: False.
         retrieve_relevant_plans (Literal["never", "hint", "reuse"], optional): Determines if the orchestrator should retrieve relevant plans from memory. Default: `never`.
         memory_controller_key (str, optional): the key to retrieve the memory_controller for a particular user.
         max_replans (int, optional): Maximum number of replans allowed. Default: 3.
@@ -40,5 +47,6 @@ class OrchestratorConfig(BaseModel):
     model_context_token_limit: Optional[int] = None
     retrieve_relevant_plans: Literal["never", "hint", "reuse"] = "never"
     memory_controller_key: Optional[str] = None
+    dynamic_memory_type: DynamicMemoryType = DynamicMemoryType.NONE
     max_replans: Union[int, None] = 3
     no_overwrite_of_task: bool = False

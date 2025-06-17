@@ -45,7 +45,10 @@ from ...learning.memory_provider import MemoryControllerProvider
 from ...types import HumanInputFormat, Plan
 from ...utils import dict_to_str, thread_to_context
 from ...tools.bing_search import get_bing_search_results
-from ...teams.orchestrator.orchestrator_config import OrchestratorConfig
+from ...teams.orchestrator.orchestrator_config import (
+    OrchestratorConfig,
+    DynamicMemoryType,
+)
 from ._prompts import (
     ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING,
     ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS,
@@ -71,6 +74,7 @@ class OrchestratorState(BaseGroupChatManagerState):
     task: str = ""
     plan_str: str = ""
     plan: Plan | None = None
+    dynamic_memory: str = ""
     n_rounds: int = 0
     current_step_idx: int = 0
     information_collected: str = ""
@@ -85,6 +89,7 @@ class OrchestratorState(BaseGroupChatManagerState):
         self.task = ""
         self.plan_str = ""
         self.plan = None
+        self.dynamic_memory = ""
         self.n_rounds = 0
         self.current_step_idx = 0
         self.information_collected = ""
@@ -97,6 +102,7 @@ class OrchestratorState(BaseGroupChatManagerState):
         self.task = ""
         self.plan_str = ""
         self.plan = None
+        self.dynamic_memory = ""
         self.n_rounds = 0
         self.current_step_idx = 0
         self.in_planning_mode = True
@@ -162,6 +168,7 @@ class Orchestrator(BaseGroupChatManager):
                     f"User agent topic {self._user_agent_topic} not in participant names {self._participant_names}"
                 )
 
+        self._dynamic_memory_type: DynamicMemoryType = self._config.dynamic_memory_type
         self._memory_controller = None
         self._memory_provider = memory_provider
         if (
@@ -249,7 +256,7 @@ class Orchestrator(BaseGroupChatManager):
         )
 
     def _get_task_ledger_replan_plan_prompt(
-        self, task: str, team: str, plan: str
+        self, task: str, team: str, plan: str, dynamic_memory: str
     ) -> str:
         additional_instructions = ""
         if self._config.allowed_websites is not None:
@@ -261,12 +268,15 @@ class Orchestrator(BaseGroupChatManager):
             task=task,
             team=team,
             plan=plan,
+            dynamic_memory=dynamic_memory,
             additional_instructions=additional_instructions,
         )
 
-    def _get_task_ledger_full_prompt(self, task: str, team: str, plan: str) -> str:
+    def _get_task_ledger_full_prompt(
+        self, task: str, team: str, plan: str, dynamic_memory: str
+    ) -> str:
         return ORCHESTRATOR_TASK_LEDGER_FULL_FORMAT.format(
-            task=task, team=team, plan=plan
+            task=task, team=team, plan=plan, dynamic_memory=dynamic_memory
         )
 
     def _get_progress_ledger_prompt(
@@ -673,7 +683,22 @@ class Orchestrator(BaseGroupChatManager):
 
         # Is this our first time planning?
         if self._state.task == "" and self._state.plan_str == "":
-            self._state.task = "TASK: " + last_user_message.content
+            last_user_message_content = last_user_message.content
+            if (
+                "[TASK]" in last_user_message_content
+                and "[MEMORY]" in last_user_message_content
+            ):
+                # split all_msg_contents based on [TASK] and [MEMORY] delimiters
+                task_contents = last_user_message_content.split("[TASK]")[1].split(
+                    "[MEMORY]"
+                )[0]
+                self._state.dynamic_memory = last_user_message_content.split(
+                    "[MEMORY]"
+                )[1]
+                self._state.task = "TASK: " + task_contents
+            else:
+                self._state.dynamic_memory = ""
+                self._state.task = "TASK: " + last_user_message_content
 
             # TCM reuse plan
             from_memory = False
@@ -885,7 +910,10 @@ class Orchestrator(BaseGroupChatManager):
 
         ledger_message = TextMessage(
             content=self._get_task_ledger_full_prompt(
-                self._state.task, self._team_description, self._state.plan_str
+                self._state.task,
+                self._team_description,
+                self._state.plan_str,
+                self._state.dynamic_memory,
             ),
             source=self._name,
         )
@@ -1108,6 +1136,7 @@ class Orchestrator(BaseGroupChatManager):
             self._state.task,
             self._team_description,
             f"Completed steps so far:\n{completed_plan_str}\n\nPrevious plan:\n{self._state.plan_str}",
+            self._state.dynamic_memory,
         )
         context.append(
             UserMessage(

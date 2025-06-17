@@ -1,4 +1,7 @@
 import os
+import re
+import hashlib
+from enum import Enum
 import base64
 import asyncio
 from typing import List, Union, Tuple, Dict
@@ -36,6 +39,25 @@ You should elaborate on how you arrived at your final evaluation and then provid
 USER_PROMPT = """TASK: <task>
 Result Response: <answer>
 <num> screenshots at the end: """
+DYNAMIC_MEMORY_PROMPT = """
+[TASK]
+<question>
+[MEMORY]
+Here are some workflows that may help you with your task:
+
+<dynamic_memory_content>
+"""
+
+
+class WebVoyagerSplit(str, Enum):
+    TRAIN = "train"
+    VALIDATION = "validation"
+    TEST = "test"
+
+
+class DynamicMemoryType(str, Enum):
+    NONE = "none"
+    AWM = "awm"
 
 
 def encode_image(image_path: str) -> str:
@@ -62,6 +84,8 @@ class WebVoyagerBenchmark(Benchmark):
         data_dir: Union[str, None] = None,
         eval_method: str = "exact_match",
         model_client: ChatCompletionClient | None = None,
+        dynamic_memory_type: DynamicMemoryType = DynamicMemoryType.NONE,
+        dynamic_memory_file: Union[str, None] = None,
     ):
         assert data_dir is not None, "data_dir must be provided for WebVoyagerBenchmark"
         super().__init__(
@@ -80,6 +104,14 @@ class WebVoyagerBenchmark(Benchmark):
         self.gaia_data_file = os.path.join(self.data_dir, "GAIA_web.jsonl")
         self.eval_result_class = WebVoyagerEvalResult
         self.tasks: Dict[str, AllTaskTypes] = {}
+        self.dynamic_memory_type = dynamic_memory_type
+        if dynamic_memory_type == DynamicMemoryType.AWM:
+            assert (
+                dynamic_memory_file is not None
+            ), "dynamic_memory_file must be provided for DynamicMemoryType.AWM"
+            self.dynamic_memory_file = dynamic_memory_file
+            with open(self.dynamic_memory_file, "r") as f:
+                self.dynamic_memory_content = f.read()
 
     def download_dataset(self) -> None:
         """
@@ -91,6 +123,25 @@ class WebVoyagerBenchmark(Benchmark):
         download_file(self.DATA_URL, self.data_file)
         download_file(self.REFERENCE_URL, self.reference_file)
         download_file(self.GAIA_DATA_URL, self.gaia_data_file)
+
+    def _get_split_for_task(self, task_id: str) -> str:
+        """
+        Create splits for the dataset.
+        """
+        ### create splits for tasks
+        template_hash = hashlib.md5(str(task_id).encode("utf-8")).hexdigest()
+
+        # Use first two hex digits for more granular control
+        hash_value = int(template_hash[:2], 16)  # 0-255
+
+        if hash_value < 102:  # 0-101 (40%)
+            split = "train"
+        elif hash_value < 179:  # 102-178 (30%)
+            split = "validation"
+        else:  # 179-255 (30%)
+            split = "test"
+
+        return split
 
     def load_dataset(self):
         """
@@ -119,28 +170,45 @@ class WebVoyagerBenchmark(Benchmark):
                         answer_type = ans_obj.get("type", None)
                         break
 
+            split = self._get_split_for_task(item["id"])
+            question = item.get("ques", "")
+            if self.dynamic_memory_type == DynamicMemoryType.AWM:
+                question = DYNAMIC_MEMORY_PROMPT.replace("<question>", question)
+                question = question.replace(
+                    "<dynamic_memory_content>", self.dynamic_memory_content
+                )
+
             task = WebVoyagerTask(
                 id=item["id"],
                 web_name=web_name,
                 web=item.get("web", ""),
-                question=item.get("ques", ""),
+                question=question,
                 ground_truth=ref_answer or "",
                 answer_type=answer_type,
                 metadata=item.get("metadata", {}),
-                set="webvoyager",
+                set=f"webvoyager/{split}/{web_name}",
             )
             self.tasks[task.id] = task
 
         data = load_jsonl(self.gaia_data_file)
 
         for item in data:
+            split = self._get_split_for_task(item["id"])
+
+            question = item.get("ques", "")
+            if self.dynamic_memory_type == DynamicMemoryType.AWM:
+                question = DYNAMIC_MEMORY_PROMPT.replace("<question>", question)
+                question = question.replace(
+                    "<dynamic_memory_content>", self.dynamic_memory_content
+                )
+
             task = WebVoyagerTask(
                 id=item.get("id", ""),
                 web_name="",
                 web=item.get("web", ""),
-                question=item.get("ques", ""),
+                question=question,
                 metadata=item.get("metadata", {}),
-                set="gaia",
+                set=f"gaia/{split}",
             )
             self.tasks[task.id] = task
 
@@ -148,9 +216,11 @@ class WebVoyagerBenchmark(Benchmark):
         """
         Returns task IDs for the specified set.
         """
-        if split not in ["webvoyager", "gaia"]:
-            raise ValueError("split must be 'webvoyager' or 'gaia'")
-        return [task_id for task_id, task in self.tasks.items() if task.set == split]
+        # if split not in ["webvoyager", "gaia"]:
+        #     raise ValueError("split must be 'webvoyager' or 'gaia'")
+        return [
+            task_id for task_id, task in self.tasks.items() if re.match(split, task.set)
+        ]
 
     def evaluator(
         self, task: AllTaskTypes, candidate: AllCandidateTypes

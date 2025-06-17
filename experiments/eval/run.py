@@ -3,6 +3,7 @@ import yaml
 import argparse
 import os
 import datetime
+from magentic_ui.eval.benchmarks.webvoyager.webvoyager import DynamicMemoryType
 from typing import Optional, Dict, Any, Callable
 from magentic_ui.eval.core import run_evaluate_benchmark_func, evaluate_benchmark_func
 from systems.magentic_ui_sim_user_system import MagenticUISimUserSystem
@@ -108,11 +109,13 @@ def run_system_evaluation(
             }
         )
 
-        def create_benchmark(data_dir="WebVoyager", name="WebVoyager"):
+        def create_benchmark(data_dir: str = "WebVoyager", name: str = "WebVoyager"):
             benchmark = WebVoyagerBenchmark(
                 data_dir=data_dir,
                 eval_method="gpt_eval",
                 model_client=client,
+                dynamic_memory_type=DynamicMemoryType(args.dynamic_memory_type),
+                dynamic_memory_file=args.dynamic_memory_file,
             )
             return benchmark
 
@@ -191,7 +194,21 @@ def main() -> None:
     parser.add_argument(
         "--current-dir", default=os.getcwd(), help="Current working directory"
     )
-    parser.add_argument("--split", default="validation-1", help="Dataset split to use")
+    parser.add_argument(
+        "--split",
+        default="validation-1",
+        help="Dataset split to use. Can be a regex pattern for WebVoyager.",
+    )
+    parser.add_argument(
+        "--dynamic-memory-type",
+        required=False,
+        choices=[d.value for d in DynamicMemoryType],
+        default=DynamicMemoryType.NONE.value,
+        help="Dynamic memory type",
+    )
+    parser.add_argument(
+        "--dynamic-memory-file", required=False, help="Dynamic memory file"
+    )
     parser.add_argument("--dataset", default="Gaia", help="Dataset name")
     parser.add_argument(
         "--config", required=False, help="Path to endpoint configuration file for LLMs"

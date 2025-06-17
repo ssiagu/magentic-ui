@@ -268,6 +268,10 @@ The task we are trying to complete is:
 
 {task}
 
+Here are the previous learnings from similar tasks:
+
+{dynamic_memory}
+
 The plan we have tried to complete is:
 
 {plan}
@@ -379,6 +383,10 @@ We are working to address the following user request:
 To answer this request we have assembled the following team:
 \n\n
 {team}
+\n\n
+Here are some learnings from similar tasks that you may find useful:
+\n\n
+{dynamic_memory}
 \n\n
 Here is the plan to follow as best as possible:
 \n\n
