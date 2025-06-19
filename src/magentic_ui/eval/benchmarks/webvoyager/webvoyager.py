@@ -58,6 +58,7 @@ class WebVoyagerSplit(str, Enum):
 class DynamicMemoryType(str, Enum):
     NONE = "none"
     AWM = "awm"
+    INSIGHTS = "insights"
 
 
 def encode_image(image_path: str) -> str:

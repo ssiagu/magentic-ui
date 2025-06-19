@@ -211,3 +211,6 @@ venv.bak/
 # Task centric memory related db and logs
 **/memory_bank/
 **/pagelogs/
+
+# Configs
+multi_config.yaml

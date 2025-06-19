@@ -6,7 +6,7 @@ import datetime
 from magentic_ui.eval.benchmarks.webvoyager.webvoyager import DynamicMemoryType
 from typing import Optional, Dict, Any, Callable
 from magentic_ui.eval.core import run_evaluate_benchmark_func, evaluate_benchmark_func
-from systems.magentic_ui_system import MagenticUIAutonomousSystem
+from systems.magentic_ui_multi_system import MagenticUIMultiAutonomousSystem
 from magentic_ui.eval.benchmarks import WebVoyagerBenchmark
 from magentic_ui.eval.benchmark import Benchmark
 from autogen_core.models import ChatCompletionClient
@@ -160,13 +160,11 @@ def run_system_sim_user(args: argparse.Namespace, system_name: str) -> None:
     """
     config = load_config(args.config)
 
-    system = MagenticUIAutonomousSystem(
-        endpoint_config_orch=config.get("orchestrator_client") if config else None,
-        endpoint_config_websurfer=config.get("web_surfer_client") if config else None,
-        endpoint_config_coder=config.get("coder_client") if config else None,
-        endpoint_config_file_surfer=config.get("file_surfer_client")
-        if config
-        else None,
+    system = MagenticUIMultiAutonomousSystem(
+        endpoint_config_orch=config.get("orchestrator_client", []) if config else [],
+        endpoint_config_websurfer=config.get("web_surfer_client", []) if config else [],
+        endpoint_config_coder=config.get("coder_client", []) if config else [],
+        endpoint_config_file_surfer=config.get("file_surfer_client", []) if config else [],
         web_surfer_only=args.web_surfer_only,
         dataset_name=args.dataset,
         use_local_browser=args.use_local_browser,
