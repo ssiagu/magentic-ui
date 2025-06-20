@@ -4,6 +4,7 @@ from .gaia.gaia import GaiaBenchmark
 from .webvoyager.webvoyager import WebVoyagerBenchmark
 from .bearcubs.bearcubs import BearcubsBenchmark
 from .webgames.webgames import WebGamesBenchmark
+from .online_mind2web.online_mind2web import OnlineMind2WebBenchmark
 
 __all__ = [
     "AssistantBenchBenchmark",
@@ -12,4 +13,5 @@ __all__ = [
     "WebVoyagerBenchmark",
     "BearcubsBenchmark",
     "WebGamesBenchmark",
+    "OnlineMind2WebBenchmark",
 ]

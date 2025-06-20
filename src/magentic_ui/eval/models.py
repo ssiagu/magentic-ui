@@ -63,8 +63,18 @@ class WebVoyagerTask(BaseTask):
     web: str = ""
     answer_type: Optional[str] = None
 
+# Online-Mind2Web specific models
+class OnlineMind2WebTask(BaseTask):
+    web_name: str = ""
+    web: str = ""
+    level: str = ""
+    reference_length: int = 0
+
 
 class WebVoyagerCandidate(BaseCandidate):
+    screenshots: List[str] = Field(default_factory=list)
+
+class OnlineMind2WebCandidate(BaseCandidate):
     screenshots: List[str] = Field(default_factory=list)
 
 
