@@ -3,11 +3,12 @@ import yaml
 import argparse
 import os
 import datetime
+from magentic_ui.models.graceful_client import GracefulRetryClient
 from magentic_ui.eval.benchmarks.webvoyager.webvoyager import DynamicMemoryType
 from typing import Optional, Dict, Any, Callable
 from magentic_ui.eval.core import run_evaluate_benchmark_func, evaluate_benchmark_func
 from systems.magentic_ui_multi_system import MagenticUIMultiAutonomousSystem
-from magentic_ui.eval.benchmarks import WebVoyagerBenchmark
+from magentic_ui.eval.benchmarks import WebVoyagerBenchmark, OnlineMind2WebBenchmark
 from magentic_ui.eval.benchmark import Benchmark
 from autogen_core.models import ChatCompletionClient
 
@@ -97,18 +98,12 @@ def run_system_evaluation(
         config (Optional[Dict[str, Any]]): Optional configuration dictionary.
     """
     benchmark_constructor: Optional[Callable[..., Benchmark]] = None
+    config = load_config(args.config)
+    if config is not None:
+        client = GracefulRetryClient.create_from_configs(config.get("coder_client", []))
+    else:
+        raise ValueError("Config file not found")
     if args.dataset == "WebVoyager":
-        # Download the dataset (only needed once)
-        client = ChatCompletionClient.load_component(
-            {
-                "provider": "OpenAIChatCompletionClient",
-                "config": {
-                    "model": "gpt-4o-2024-08-06",
-                },
-                "max_retries": 10,
-            }
-        )
-
         def create_benchmark(data_dir: str = "WebVoyager", name: str = "WebVoyager"):
             benchmark = WebVoyagerBenchmark(
                 data_dir=data_dir,
@@ -120,6 +115,18 @@ def run_system_evaluation(
             return benchmark
 
         benchmark_constructor = create_benchmark
+    elif args.dataset == "OnlineMind2Web":
+        def create_benchmark_online_mind_2_web(data_dir: str = "OnlineMind2Web", name: str = "OnlineMind2Web"):
+            benchmark = OnlineMind2WebBenchmark(
+                data_dir=data_dir,
+                eval_method="gpt_eval",
+                model_client=client,
+                dynamic_memory_type=DynamicMemoryType(args.dynamic_memory_type),
+                dynamic_memory_file=args.dynamic_memory_file,
+            )
+            return benchmark
+
+        benchmark_constructor = create_benchmark_online_mind_2_web
         # Load it into memory
     if args.mode == "eval":
         evaluate_benchmark_func(
