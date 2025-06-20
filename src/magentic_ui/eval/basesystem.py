@@ -35,6 +35,29 @@ class BaseSystem:
         """
         raise NotImplementedError("Implement your system's logic here.")
 
+    def load_messages_from_disk(
+        self, task_id: str, output_dir: str
+    ) -> Optional[str]:
+        """
+        Helper to load an answer from disk if it exists.
+
+        Args:
+            task_id (str): The ID of the task.
+            output_dir (str): The directory to load the answer from.
+
+        Returns:
+            Optional[AllCandidateTypes]: The loaded answer, or None if it doesn't exist.
+        """
+        if self.candidate_class is None:
+            raise ValueError("Subclass must set self.candidate_class in __init__")
+
+        answer_path = os.path.join(output_dir, f"{task_id}_messages.json")
+        if not os.path.exists(answer_path):
+            return None
+        with open(answer_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data
+
     def load_answer_from_disk(
         self, task_id: str, output_dir: str
     ) -> Optional[AllCandidateTypes]:

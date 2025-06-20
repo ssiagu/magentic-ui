@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 import shutil
 import multiprocessing
@@ -146,6 +147,10 @@ def _run_single_task(
         if os.path.exists(question_dir):
             try:
                 existing_answer = system.load_answer_from_disk(task_id, question_dir)
+                existing_messages = system.load_messages_from_disk(task_id, question_dir)
+                if existing_messages is not None and check_captcha_mentions(str(existing_messages)):
+                    logger.info(f"Skipping {task_id} due to CAPTCHA mention")
+                    return (task_id, None, 0)
                 if existing_answer:
                     times_path = os.path.join(question_dir, "times.json")
                     if os.path.exists(times_path):
@@ -397,6 +402,34 @@ def run_benchmark_func(
 
     logger.info(f"Run completed: {success_count} succeeded, {fail_count} failed.")
 
+def check_captcha_mentions(text: str) -> bool:
+    """Check if text contains CAPTCHA or similar mentions."""
+    if not text:
+        return False
+    
+    # Case-insensitive patterns for CAPTCHA and related terms
+    captcha_patterns = [
+        r'\bcaptcha\b',
+        r'\bCAPTCHA\b',
+        r'\breCAPTCHA\b',
+        r'\brecaptcha\b',
+        r'\bhuman verification\b',
+        r'\bverify you\'re human\b',
+        r'\bverify that you\'re human\b',
+        r'\bI\'m not a robot\b',
+        r'\bI am not a robot\b',
+        r'\brobot verification\b',
+        r'\bsecurity check\b',
+        r'\bverification challenge\b',
+        r'\bprove you\'re human\b',
+        r'\bprove that you\'re human\b'
+    ]
+    
+    # Combine all patterns with OR
+    combined_pattern = '|'.join(f'({pattern})' for pattern in captcha_patterns)
+    
+    # Search for any match
+    return bool(re.search(combined_pattern, text, re.IGNORECASE))
 
 def _evaluate_single_task(
     task_id: str,
@@ -431,6 +464,11 @@ def _evaluate_single_task(
     times_path = os.path.join(question_dir, "times.json")
     score_path = os.path.join(question_dir, "score.json")
 
+
+    existing_messages = system.load_messages_from_disk(task_id, question_dir)
+    if existing_messages is not None and check_captcha_mentions(str(existing_messages)):
+        logger.info(f"Skipping {task_id} due to CAPTCHA mention")
+        return (task_id, None, 0)
     if os.path.exists(times_path):
         with open(times_path, "r") as f:
             times_data = json.load(f)

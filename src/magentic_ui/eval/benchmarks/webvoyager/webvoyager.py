@@ -125,6 +125,23 @@ class WebVoyagerBenchmark(Benchmark):
         download_file(self.REFERENCE_URL, self.reference_file)
         download_file(self.GAIA_DATA_URL, self.gaia_data_file)
 
+    def _get_split_for_site(self, site_name: str) -> str:
+        """
+        Create splits for the dataset.
+        """
+        ### create splits for tasks
+        template_hash = hashlib.md5(str(site_name).encode("utf-8")).hexdigest()
+
+        # Use first two hex digits for more granular control
+        hash_value = int(template_hash[:2], 16)  # 0-255
+
+        if hash_value < 128:  # 0-127 (50%)
+            split = "train"
+        else:  # 128-255 (50%)
+            split = "test"
+
+        return split
+
     def _get_split_for_task(self, task_id: str) -> str:
         """
         Create splits for the dataset.
@@ -135,11 +152,9 @@ class WebVoyagerBenchmark(Benchmark):
         # Use first two hex digits for more granular control
         hash_value = int(template_hash[:2], 16)  # 0-255
 
-        if hash_value < 102:  # 0-101 (40%)
+        if hash_value < 128:  # 0-127 (50%)
             split = "train"
-        elif hash_value < 179:  # 102-178 (30%)
-            split = "validation"
-        else:  # 179-255 (30%)
+        else:  # 128-255 (50%)
             split = "test"
 
         return split
@@ -171,7 +186,7 @@ class WebVoyagerBenchmark(Benchmark):
                         answer_type = ans_obj.get("type", None)
                         break
 
-            split = self._get_split_for_task(item["id"])
+            split = self._get_split_for_site(web_name)
             question = item.get("ques", "")
             if self.dynamic_memory_type == DynamicMemoryType.AWM:
                 question = DYNAMIC_MEMORY_PROMPT.replace("<question>", question)
@@ -194,7 +209,7 @@ class WebVoyagerBenchmark(Benchmark):
         data = load_jsonl(self.gaia_data_file)
 
         for item in data:
-            split = self._get_split_for_task(item["id"])
+            split = self._get_split_for_task(item.get("id", ""))
 
             question = item.get("ques", "")
             if self.dynamic_memory_type == DynamicMemoryType.AWM:
