@@ -81,6 +81,9 @@ class OnlineMind2WebCandidate(BaseCandidate):
 class WebVoyagerEvalResult(BaseEvalResult):
     reasoning: str = ""
     pass  # Uses base score field only
+class OnlineMind2WebEvalResult(BaseEvalResult):
+    reasoning: str = ""
+    pass  # Uses base score field only
 
 
 # Custom benchmark specific models

@@ -103,6 +103,17 @@ class OnlineMind2WebBenchmark(Benchmark):
             self.dynamic_memory_file = dynamic_memory_file
             with open(self.dynamic_memory_file, "r") as f:
                 self.dynamic_memory_content = f.read()
+        elif dynamic_memory_type == DynamicMemoryType.INSIGHTS:
+            assert (
+                dynamic_memory_file is not None
+            ), "dynamic_memory_file must be provided for DynamicMemoryType.INSIGHTS"
+            self.dynamic_memory_file = dynamic_memory_file
+            with open(self.dynamic_memory_file, "r") as f:
+                self.dynamic_memory_content = f.read()
+        else:
+            print(
+                f"No dynamic memory file provided for {dynamic_memory_type}"
+            )
 
     def download_dataset(self) -> None:
         """
@@ -161,7 +172,7 @@ class OnlineMind2WebBenchmark(Benchmark):
             question:str = item["confirmed_task"]
 
             split = self._get_split_for_site(web_name)
-            if self.dynamic_memory_type == DynamicMemoryType.AWM:
+            if self.dynamic_memory_type == DynamicMemoryType.AWM or self.dynamic_memory_type == DynamicMemoryType.INSIGHTS:
                 question = DYNAMIC_MEMORY_PROMPT.replace("<question>", question)
                 question = question.replace(
                     "<dynamic_memory_content>", self.dynamic_memory_content

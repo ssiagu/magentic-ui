@@ -43,8 +43,6 @@ DYNAMIC_MEMORY_PROMPT = """
 [TASK]
 <question>
 [MEMORY]
-Here are some workflows that may help you with your task:
-
 <dynamic_memory_content>
 """
 
@@ -113,6 +111,19 @@ class WebVoyagerBenchmark(Benchmark):
             self.dynamic_memory_file = dynamic_memory_file
             with open(self.dynamic_memory_file, "r") as f:
                 self.dynamic_memory_content = f.read()
+                start_phrase = "Here are some workflows that may help you with your task:"
+                self.dynamic_memory_content = start_phrase + "\n" + self.dynamic_memory_content
+        elif dynamic_memory_type == DynamicMemoryType.INSIGHTS:
+            assert (
+                dynamic_memory_file is not None
+            ), "dynamic_memory_file must be provided for DynamicMemoryType.INSIGHTS"
+            self.dynamic_memory_file = dynamic_memory_file
+            with open(self.dynamic_memory_file, "r") as f:
+                self.dynamic_memory_content = f.read()
+        else:
+            print(
+                f"No dynamic memory file provided for {dynamic_memory_type}"
+            )
 
     def download_dataset(self) -> None:
         """
@@ -188,7 +199,7 @@ class WebVoyagerBenchmark(Benchmark):
 
             split = self._get_split_for_site(web_name)
             question = item.get("ques", "")
-            if self.dynamic_memory_type == DynamicMemoryType.AWM:
+            if self.dynamic_memory_type == DynamicMemoryType.AWM or self.dynamic_memory_type == DynamicMemoryType.INSIGHTS:
                 question = DYNAMIC_MEMORY_PROMPT.replace("<question>", question)
                 question = question.replace(
                     "<dynamic_memory_content>", self.dynamic_memory_content
@@ -212,7 +223,7 @@ class WebVoyagerBenchmark(Benchmark):
             split = self._get_split_for_task(item.get("id", ""))
 
             question = item.get("ques", "")
-            if self.dynamic_memory_type == DynamicMemoryType.AWM:
+            if self.dynamic_memory_type == DynamicMemoryType.AWM or self.dynamic_memory_type == DynamicMemoryType.INSIGHTS: 
                 question = DYNAMIC_MEMORY_PROMPT.replace("<question>", question)
                 question = question.replace(
                     "<dynamic_memory_content>", self.dynamic_memory_content
