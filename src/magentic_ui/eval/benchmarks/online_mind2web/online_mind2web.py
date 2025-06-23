@@ -1,6 +1,7 @@
 import os
 import re
 import hashlib
+from huggingface_hub import hf_hub_download
 from enum import Enum
 import base64
 import asyncio
@@ -9,7 +10,7 @@ from autogen_core.models import UserMessage, ChatCompletionClient
 from autogen_core import Image as AGImage
 from pathlib import Path
 from ...benchmark import Benchmark
-from ...utils import download_file, load_json
+from ...utils import load_json
 from ...models import (
     OnlineMind2WebTask,
     OnlineMind2WebCandidate,
@@ -77,7 +78,9 @@ class OnlineMind2WebBenchmark(Benchmark):
         dynamic_memory_type: DynamicMemoryType = DynamicMemoryType.NONE,
         dynamic_memory_file: Union[str, None] = None,
     ):
-        assert data_dir is not None, "data_dir must be provided for OnlineMind2WebBenchmark"
+        assert (
+            data_dir is not None
+        ), "data_dir must be provided for OnlineMind2WebBenchmark"
         super().__init__(
             name=name,
             data_dir=data_dir,
@@ -100,8 +103,12 @@ class OnlineMind2WebBenchmark(Benchmark):
             self.dynamic_memory_file = dynamic_memory_file
             with open(self.dynamic_memory_file, "r") as f:
                 self.dynamic_memory_content = f.read()
-                start_phrase = "Here are some workflows that may help you with your task:"
-                self.dynamic_memory_content = start_phrase + "\n" + self.dynamic_memory_content
+                start_phrase = (
+                    "Here are some workflows that may help you with your task:"
+                )
+                self.dynamic_memory_content = (
+                    start_phrase + "\n" + self.dynamic_memory_content
+                )
         elif dynamic_memory_type == DynamicMemoryType.INSIGHTS:
             assert (
                 dynamic_memory_file is not None
@@ -110,9 +117,7 @@ class OnlineMind2WebBenchmark(Benchmark):
             with open(self.dynamic_memory_file, "r") as f:
                 self.dynamic_memory_content = f.read()
         else:
-            print(
-                f"No dynamic memory file provided for {dynamic_memory_type}"
-            )
+            print(f"No dynamic memory file provided for {dynamic_memory_type}")
 
     def download_dataset(self) -> None:
         """
@@ -121,7 +126,14 @@ class OnlineMind2WebBenchmark(Benchmark):
         assert self.data_dir is not None
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir, exist_ok=True)
-        download_file(self.DATA_URL, self.data_file)
+
+        # Download directly to the target location
+        hf_hub_download(
+            repo_id="osunlp/Online-Mind2Web",
+            filename="Online_Mind2Web.json",
+            repo_type="dataset",
+            local_dir=self.data_dir,
+        )
 
     def _get_split_for_site(self, site_name: str) -> str:
         """
@@ -149,14 +161,17 @@ class OnlineMind2WebBenchmark(Benchmark):
 
         # Data is a list
         for item in data:
-            task_id:str = item["task_id"]
-            web_name:str = item["website"]
-            question:str = item["confirmed_task"]
-            level:str = item["level"]
-            reference_length:int = item["reference_length"]
+            task_id: str = item["task_id"]
+            web_name: str = item["website"]
+            question: str = item["confirmed_task"]
+            level: str = item["level"]
+            reference_length: int = item["reference_length"]
 
             split = self._get_split_for_site(web_name)
-            if self.dynamic_memory_type == DynamicMemoryType.AWM or self.dynamic_memory_type == DynamicMemoryType.INSIGHTS:
+            if (
+                self.dynamic_memory_type == DynamicMemoryType.AWM
+                or self.dynamic_memory_type == DynamicMemoryType.INSIGHTS
+            ):
                 question = DYNAMIC_MEMORY_PROMPT.replace("<question>", question)
                 question = question.replace(
                     "<dynamic_memory_content>", self.dynamic_memory_content

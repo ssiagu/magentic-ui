@@ -10,7 +10,6 @@ from magentic_ui.eval.core import run_evaluate_benchmark_func, evaluate_benchmar
 from systems.magentic_ui_multi_system import MagenticUIMultiAutonomousSystem
 from magentic_ui.eval.benchmarks import WebVoyagerBenchmark, OnlineMind2WebBenchmark
 from magentic_ui.eval.benchmark import Benchmark
-from autogen_core.models import ChatCompletionClient
 
 
 def save_experiment_args(args: argparse.Namespace, system_name: str) -> None:
@@ -104,6 +103,7 @@ def run_system_evaluation(
     else:
         raise ValueError("Config file not found")
     if args.dataset == "WebVoyager":
+
         def create_benchmark(data_dir: str = "WebVoyager", name: str = "WebVoyager"):
             benchmark = WebVoyagerBenchmark(
                 data_dir=data_dir,
@@ -116,7 +116,10 @@ def run_system_evaluation(
 
         benchmark_constructor = create_benchmark
     elif args.dataset == "OnlineMind2Web":
-        def create_benchmark_online_mind_2_web(data_dir: str = "OnlineMind2Web", name: str = "OnlineMind2Web"):
+
+        def create_benchmark_online_mind_2_web(
+            data_dir: str = "OnlineMind2Web", name: str = "OnlineMind2Web"
+        ):
             benchmark = OnlineMind2WebBenchmark(
                 data_dir=data_dir,
                 eval_method="gpt_eval",
@@ -127,6 +130,8 @@ def run_system_evaluation(
             return benchmark
 
         benchmark_constructor = create_benchmark_online_mind_2_web
+    else:
+        raise ValueError(f"Dataset {args.dataset} not supported")
         # Load it into memory
     if args.mode == "eval":
         evaluate_benchmark_func(
@@ -171,7 +176,9 @@ def run_system_sim_user(args: argparse.Namespace, system_name: str) -> None:
         endpoint_config_orch=config.get("orchestrator_client", []) if config else [],
         endpoint_config_websurfer=config.get("web_surfer_client", []) if config else [],
         endpoint_config_coder=config.get("coder_client", []) if config else [],
-        endpoint_config_file_surfer=config.get("file_surfer_client", []) if config else [],
+        endpoint_config_file_surfer=config.get("file_surfer_client", [])
+        if config
+        else [],
         web_surfer_only=args.web_surfer_only,
         dataset_name=args.dataset,
         use_local_browser=args.use_local_browser,
