@@ -46,6 +46,7 @@ class GracefulRetryClient(ChatCompletionClient):
         max_retries: int = 8,
     ):
         self._clients = clients
+        assert len(clients) > 0, "No clients provided"
         self.logger = logger or logging.getLogger(__name__)
         self.max_retries = max_retries
         self.support_json = support_json
@@ -56,6 +57,7 @@ class GracefulRetryClient(ChatCompletionClient):
         clients = [
             ChatCompletionClient.load_component(config) for config in configs
         ]
+        assert len(clients) > 0, "No clients provided"
         return GracefulRetryClient(clients=clients, logger=logger, max_retries=max_retries)
 
     def next_client(self) -> ChatCompletionClient:
@@ -76,7 +78,9 @@ class GracefulRetryClient(ChatCompletionClient):
         cancellation_token: Optional[CancellationToken] = None,
     ) -> CreateResult:
         tries = self.max_retries
-            
+
+        print(f"Create from messages: {messages}")
+
         while tries > 0:
             client = self.next_client()
             try:
@@ -98,7 +102,7 @@ class GracefulRetryClient(ChatCompletionClient):
             except openai.RateLimitError as e:
                 tries -= 1
                 print(f"ERROR: GracefulRetryClient.create() RateLimitError: {client.model_info}, {e}")
-                sleep_time = 2 ** (self.max_retries - tries)
+                sleep_time = 2 # ** (self.max_retries - tries) # Retry faster
                 time.sleep(sleep_time)
                 continue
             except openai.NotFoundError as e:
@@ -135,7 +139,7 @@ class GracefulRetryClient(ChatCompletionClient):
             except Exception as e:
                 if "please try again" in str(e).lower():
                     tries -= 1
-                    sleep_time = 2 ** (self.max_retries - tries)
+                    sleep_time = 2 # ** (self.max_retries - tries) # Retry faster
                     time.sleep(sleep_time)
                     continue
                 print(f"Error: GracefulRetryClient.create() {client.model_info} Raising Exception: {e}")
@@ -159,20 +163,23 @@ class GracefulRetryClient(ChatCompletionClient):
             await client.close()
 
     def actual_usage(self) -> RequestUsage:
-        prompt_tokens = sum([client.actual_usage().prompt_tokens for client in self._clients])
-        completion_tokens = sum([client.actual_usage().completion_tokens for client in self._clients])
-        return RequestUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
+        raise NotImplementedError("GracefulRetryClient.actual_usage() is not implemented")
+        # prompt_tokens = sum([client.actual_usage().prompt_tokens for client in self._clients])
+        # completion_tokens = sum([client.actual_usage().completion_tokens for client in self._clients])
+        # return RequestUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
 
     def total_usage(self) -> RequestUsage:  
-        prompt_tokens = sum([client.total_usage().prompt_tokens for client in self._clients])
-        completion_tokens = sum([client.total_usage().completion_tokens for client in self._clients])
-        return RequestUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
+        raise NotImplementedError("GracefulRetryClient.total_usage() is not implemented")
+        # prompt_tokens = sum([client.total_usage().prompt_tokens for client in self._clients])
+        # completion_tokens = sum([client.total_usage().completion_tokens for client in self._clients])
+        # return RequestUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
 
     def count_tokens(self, messages: Sequence[LLMMessage], *, tools: Sequence[Tool | ToolSchema] = []) -> int:
-        return sum([client.count_tokens(messages, tools=tools) for client in self._clients])
+        # Assume all clients are the same model
+        return self._clients[0].count_tokens(messages, tools=tools)
 
     def remaining_tokens(self, messages: Sequence[LLMMessage], *, tools: Sequence[Tool | ToolSchema] = []) -> int:
-        return sum([client.remaining_tokens(messages=messages, tools=tools) for client in self._clients])
+        return self._clients[0].remaining_tokens(messages=messages, tools=tools)
 
     @property
     def capabilities(self) -> ModelCapabilities: # type: ignore
