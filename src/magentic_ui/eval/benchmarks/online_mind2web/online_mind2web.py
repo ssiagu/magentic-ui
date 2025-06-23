@@ -43,8 +43,6 @@ DYNAMIC_MEMORY_PROMPT = """
 [TASK]
 <question>
 [MEMORY]
-Here are some workflows that may help you with your task:
-
 <dynamic_memory_content>
 """
 
@@ -65,8 +63,7 @@ def encode_image(image_path: str) -> str:
 
 class OnlineMind2WebBenchmark(Benchmark):
     """
-    Loads the WebVoyager dataset, stores it locally,
-    and evaluates predictions using the GAIA evaluator.
+    Loads the Online-Mind2Web dataset, stores it locally, and evaluates predictions using the GPT-based evaluator.
     """
 
     DATA_URL = "https://huggingface.co/datasets/osunlp/Online-Mind2Web/resolve/main/Online_Mind2Web.json"
@@ -75,7 +72,7 @@ class OnlineMind2WebBenchmark(Benchmark):
         self,
         name: str = "Online-Mind2Web",
         data_dir: Union[str, None] = None,
-        eval_method: str = "exact_match",
+        eval_method: str = "gpt_eval",
         model_client: ChatCompletionClient | None = None,
         dynamic_memory_type: DynamicMemoryType = DynamicMemoryType.NONE,
         dynamic_memory_file: Union[str, None] = None,
@@ -85,8 +82,8 @@ class OnlineMind2WebBenchmark(Benchmark):
             name=name,
             data_dir=data_dir,
         )
-        if eval_method not in ["exact_match", "gpt_eval"]:
-            raise ValueError("eval_method must be 'exact_match' or 'gpt_eval'")
+        if eval_method not in ["gpt_eval"]:
+            raise ValueError("eval_method must be 'gpt_eval'")
         self.eval_method = eval_method
         if eval_method == "gpt_eval" and model_client is None:
             raise ValueError("model_client must be provided for gpt_eval")
@@ -103,6 +100,8 @@ class OnlineMind2WebBenchmark(Benchmark):
             self.dynamic_memory_file = dynamic_memory_file
             with open(self.dynamic_memory_file, "r") as f:
                 self.dynamic_memory_content = f.read()
+                start_phrase = "Here are some workflows that may help you with your task:"
+                self.dynamic_memory_content = start_phrase + "\n" + self.dynamic_memory_content
         elif dynamic_memory_type == DynamicMemoryType.INSIGHTS:
             assert (
                 dynamic_memory_file is not None
@@ -141,35 +140,20 @@ class OnlineMind2WebBenchmark(Benchmark):
 
         return split
 
-    def _get_split_for_task(self, task_id: str) -> str:
-        """
-        Create splits for the dataset.
-        """
-        ### create splits for tasks
-        template_hash = hashlib.md5(str(task_id).encode("utf-8")).hexdigest()
-
-        # Use first two hex digits for more granular control
-        hash_value = int(template_hash[:2], 16)  # 0-255
-
-        if hash_value < 128:  # 0-127 (50%)
-            split = "train"
-        else:  # 128-255 (50%)
-            split = "test"
-
-        return split
-
     def load_dataset(self):
         """
-        Loads the data from a JSONL file and the references from a JSON file.
-        Creates WebVoyagerTask objects from the loaded data.
+        Loads the data from a JSON file.
+        Creates OnlineMind2WebTask objects from the loaded data.
         """
         data = load_json(self.data_file)
 
         # Data is a list
         for item in data:
             task_id:str = item["task_id"]
-            web_name:str = item["website", ""]
+            web_name:str = item["website"]
             question:str = item["confirmed_task"]
+            level:str = item["level"]
+            reference_length:int = item["reference_length"]
 
             split = self._get_split_for_site(web_name)
             if self.dynamic_memory_type == DynamicMemoryType.AWM or self.dynamic_memory_type == DynamicMemoryType.INSIGHTS:
@@ -183,9 +167,10 @@ class OnlineMind2WebBenchmark(Benchmark):
                 web_name=web_name,
                 question=question,
                 ground_truth="",
-                answer_type="",
                 metadata={},
-                set=f"{split}/{web_name}",
+                level=level,
+                reference_length=reference_length,
+                set=f"{split}/{web_name}/{level}",
             )
             self.tasks[task.id] = task
 
@@ -193,8 +178,6 @@ class OnlineMind2WebBenchmark(Benchmark):
         """
         Returns task IDs for the specified set.
         """
-        # if split not in ["webvoyager", "gaia"]:
-        #     raise ValueError("split must be 'webvoyager' or 'gaia'")
         split_tasks = [
             task_id for task_id, task in self.tasks.items() if re.match(split, task.set)
         ]
@@ -208,9 +191,8 @@ class OnlineMind2WebBenchmark(Benchmark):
     ) -> AllEvalResultTypes:
         """
         Evaluate how 'correct' the candidate answer is relative to the gold_answer.
-        Returns a WebVoyagerEvalResult with the score.
+        Returns a OnlineMind2WebEvalResult with the score.
         """
-        # cast to WebVoyagerTask and WebVoyagerCandidate if dicts
         if isinstance(task, dict):
             task = OnlineMind2WebTask(**task)  # type: ignore
         if isinstance(candidate, dict):

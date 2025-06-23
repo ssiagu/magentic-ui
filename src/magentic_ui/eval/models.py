@@ -66,7 +66,6 @@ class WebVoyagerTask(BaseTask):
 # Online-Mind2Web specific models
 class OnlineMind2WebTask(BaseTask):
     web_name: str = ""
-    web: str = ""
     level: str = ""
     reference_length: int = 0
 
@@ -103,7 +102,7 @@ class CustomEvalResult(BaseEvalResult):
 
 
 # Union types for all tasks, candidates, and eval results
-AllTaskTypes = Union[BaseTask, AssistantBenchTask, GaiaTask, WebVoyagerTask, CustomTask]
+AllTaskTypes = Union[BaseTask, AssistantBenchTask, GaiaTask, WebVoyagerTask, CustomTask, OnlineMind2WebTask]
 
 AllCandidateTypes = Union[
     BaseCandidate,
@@ -111,6 +110,7 @@ AllCandidateTypes = Union[
     GaiaCandidate,
     WebVoyagerCandidate,
     CustomCandidate,
+    OnlineMind2WebCandidate,
 ]
 
 AllEvalResultTypes = Union[
@@ -119,4 +119,5 @@ AllEvalResultTypes = Union[
     GaiaEvalResult,
     WebVoyagerEvalResult,
     CustomEvalResult,
+    OnlineMind2WebEvalResult,
 ]
