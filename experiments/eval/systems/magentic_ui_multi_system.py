@@ -7,7 +7,7 @@ import datetime
 from pathlib import Path
 from PIL import Image
 from pydantic import BaseModel
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Tuple
 from autogen_core.models import ChatCompletionClient
 from autogen_core import Image as AGImage
 from autogen_agentchat.base import TaskResult, ChatAgent
@@ -65,7 +65,6 @@ class MagenticUIMultiAutonomousSystem(BaseSystem):
         dataset_name (str): Name of the evaluation dataset (e.g., "Gaia").
         use_local_browser (bool): If True, use the local browser.
     """
-
 
     def __init__(
         self,

@@ -63,6 +63,7 @@ class WebVoyagerTask(BaseTask):
     web: str = ""
     answer_type: Optional[str] = None
 
+
 # Online-Mind2Web specific models
 class OnlineMind2WebTask(BaseTask):
     web_name: str = ""
@@ -73,6 +74,7 @@ class OnlineMind2WebTask(BaseTask):
 class WebVoyagerCandidate(BaseCandidate):
     screenshots: List[str] = Field(default_factory=list)
 
+
 class OnlineMind2WebCandidate(BaseCandidate):
     screenshots: List[str] = Field(default_factory=list)
 
@@ -80,6 +82,8 @@ class OnlineMind2WebCandidate(BaseCandidate):
 class WebVoyagerEvalResult(BaseEvalResult):
     reasoning: str = ""
     pass  # Uses base score field only
+
+
 class OnlineMind2WebEvalResult(BaseEvalResult):
     reasoning: str = ""
     pass  # Uses base score field only
@@ -102,7 +106,14 @@ class CustomEvalResult(BaseEvalResult):
 
 
 # Union types for all tasks, candidates, and eval results
-AllTaskTypes = Union[BaseTask, AssistantBenchTask, GaiaTask, WebVoyagerTask, CustomTask, OnlineMind2WebTask]
+AllTaskTypes = Union[
+    BaseTask,
+    AssistantBenchTask,
+    GaiaTask,
+    WebVoyagerTask,
+    CustomTask,
+    OnlineMind2WebTask,
+]
 
 AllCandidateTypes = Union[
     BaseCandidate,

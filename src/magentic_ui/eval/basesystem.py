@@ -35,9 +35,7 @@ class BaseSystem:
         """
         raise NotImplementedError("Implement your system's logic here.")
 
-    def load_messages_from_disk(
-        self, task_id: str, output_dir: str
-    ) -> Optional[str]:
+    def load_messages_from_disk(self, task_id: str, output_dir: str) -> Optional[str]:
         """
         Helper to load an answer from disk if it exists.
 

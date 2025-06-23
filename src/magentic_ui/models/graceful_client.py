@@ -25,7 +25,7 @@ from autogen_core.models import (
     UserMessage,
     LLMMessage,
     RequestUsage,
-    ModelCapabilities, # type: ignore
+    ModelCapabilities,  # type: ignore
     ModelInfo,
 )
 from autogen_core import CancellationToken
@@ -34,14 +34,15 @@ from autogen_core.tools import Tool, ToolSchema
 
 class GracefulRetryClient(ChatCompletionClient):
     """
-        This class is a gateway to multiple clients, it will try to use the clients in a round robin fashion
-        Every time create() is called, a new client is selected from the list of clients
-        This means that, for a single trajectory which requires N GPT-4 calls, it is not guaranteed that all calls will be made by the same client
+    This class is a gateway to multiple clients, it will try to use the clients in a round robin fashion
+    Every time create() is called, a new client is selected from the list of clients
+    This means that, for a single trajectory which requires N GPT-4 calls, it is not guaranteed that all calls will be made by the same client
     """
+
     def __init__(
         self,
         clients: List[ChatCompletionClient],
-        support_json: bool = True, # if all clients do
+        support_json: bool = True,  # if all clients do
         logger: Optional[Type[logging.Logger]] = None,
         max_retries: int = 8,
     ):
@@ -53,18 +54,24 @@ class GracefulRetryClient(ChatCompletionClient):
         self.blocklist: Set[ChatCompletionClient] = set()
 
     @staticmethod
-    def create_from_configs(configs: List[Dict[str, Any]], logger: Optional[Type[logging.Logger]] = None, max_retries: int = 8):
-        clients = [
-            ChatCompletionClient.load_component(config) for config in configs
-        ]
+    def create_from_configs(
+        configs: List[Dict[str, Any]],
+        logger: Optional[Type[logging.Logger]] = None,
+        max_retries: int = 8,
+    ):
+        clients = [ChatCompletionClient.load_component(config) for config in configs]
         assert len(clients) > 0, "No clients provided"
-        return GracefulRetryClient(clients=clients, logger=logger, max_retries=max_retries)
+        return GracefulRetryClient(
+            clients=clients, logger=logger, max_retries=max_retries
+        )
 
     def next_client(self) -> ChatCompletionClient:
         """
-            Self-healing property: only select from clients that are not in the blocklist, blocklist grows whenever we encounter a client that is not available
+        Self-healing property: only select from clients that are not in the blocklist, blocklist grows whenever we encounter a client that is not available
         """
-        valid_clients = [client for client in self._clients if client not in self.blocklist]
+        valid_clients = [
+            client for client in self._clients if client not in self.blocklist
+        ]
         idx = random.choice(list(range(len(valid_clients))))
         return valid_clients[idx]
 
@@ -92,46 +99,62 @@ class GracefulRetryClient(ChatCompletionClient):
                     cancellation_token=cancellation_token,
                 )
                 return result
-            
+
             except openai.InternalServerError as e:
                 tries -= 1
-                print(f"ERROR: GracefulRetryClient.create() InternalServerError: {client.model_info}, {e}")
+                print(
+                    f"ERROR: GracefulRetryClient.create() InternalServerError: {client.model_info}, {e}"
+                )
                 sleep_time = 2
                 time.sleep(sleep_time)
                 continue
             except openai.RateLimitError as e:
                 tries -= 1
-                print(f"ERROR: GracefulRetryClient.create() RateLimitError: {client.model_info}, {e}")
-                sleep_time = 2 # ** (self.max_retries - tries) # Retry faster
+                print(
+                    f"ERROR: GracefulRetryClient.create() RateLimitError: {client.model_info}, {e}"
+                )
+                sleep_time = 2  # ** (self.max_retries - tries) # Retry faster
                 time.sleep(sleep_time)
                 continue
             except openai.NotFoundError as e:
                 self.blocklist.add(client)
-                print(f"ERROR: GracefulRetryClient.create() PermissionDeniedError:, BLOCKING {client.model_info} and switching to new client {e}")
+                print(
+                    f"ERROR: GracefulRetryClient.create() PermissionDeniedError:, BLOCKING {client.model_info} and switching to new client {e}"
+                )
                 time.sleep(1)
                 continue
             except openai.PermissionDeniedError as e:
                 self.blocklist.add(client)
-                print(f"ERROR: GracefulRetryClient.create() PermissionDeniedError: {client.model_info}, BLOCKING {client.model_info} and switching to new client {e}")
+                print(
+                    f"ERROR: GracefulRetryClient.create() PermissionDeniedError: {client.model_info}, BLOCKING {client.model_info} and switching to new client {e}"
+                )
                 time.sleep(1)
                 continue
             except openai.APIConnectionError as e:
                 self.blocklist.add(client)
-                print(f"ERROR: GracefulRetryClient.create() APIConnectionError: {client.model_info}, BLOCKING {client.model_info} and switching to new client {e}")
+                print(
+                    f"ERROR: GracefulRetryClient.create() APIConnectionError: {client.model_info}, BLOCKING {client.model_info} and switching to new client {e}"
+                )
                 time.sleep(1)
                 continue
             except openai.AuthenticationError as e:
-                print(f"ERROR: GracefulRetryClient.create() AuthenticationError: {client.model_info}, {e}")
+                print(
+                    f"ERROR: GracefulRetryClient.create() AuthenticationError: {client.model_info}, {e}"
+                )
                 self.blocklist.add(client)
                 continue
             except openai.APIStatusError as e:
                 if "DeploymentNotFound" in str(e):
-                    print(f"ERROR: GracefulRetryClient.create() DeploymentNotFound: {client.model_info}, BLOCKING {client.model_info} and switching to new client {e}")
+                    print(
+                        f"ERROR: GracefulRetryClient.create() DeploymentNotFound: {client.model_info}, BLOCKING {client.model_info} and switching to new client {e}"
+                    )
                     self.blocklist.add(client)
                     time.sleep(1)
                     continue
                 if "Request body too large" in str(e):
-                    print(f"ERROR: GracefulRetryClient.create() Request body too large: {client.model_info}, {e}")
+                    print(
+                        f"ERROR: GracefulRetryClient.create() Request body too large: {client.model_info}, {e}"
+                    )
                     tries -= 1
                     time.sleep(1)
                     continue
@@ -139,13 +162,19 @@ class GracefulRetryClient(ChatCompletionClient):
             except Exception as e:
                 if "please try again" in str(e).lower():
                     tries -= 1
-                    sleep_time = 2 # ** (self.max_retries - tries) # Retry faster
+                    sleep_time = 2  # ** (self.max_retries - tries) # Retry faster
                     time.sleep(sleep_time)
                     continue
-                print(f"Error: GracefulRetryClient.create() {client.model_info} Raising Exception: {e}")
+                print(
+                    f"Error: GracefulRetryClient.create() {client.model_info} Raising Exception: {e}"
+                )
                 raise e
-        valid_clients = [client for client in self._clients if client not in self.blocklist]
-        raise Exception(f"GracefulRetryClient.create(): All clients are exhausted even after {self.max_retries} retries to {len(valid_clients)}/{len(self._clients)} clients. Blocklist: {len(self.blocklist)}")
+        valid_clients = [
+            client for client in self._clients if client not in self.blocklist
+        ]
+        raise Exception(
+            f"GracefulRetryClient.create(): All clients are exhausted even after {self.max_retries} retries to {len(valid_clients)}/{len(self._clients)} clients. Blocklist: {len(self.blocklist)}"
+        )
 
     def create_stream(
         self,
@@ -156,33 +185,43 @@ class GracefulRetryClient(ChatCompletionClient):
         extra_create_args: Mapping[str, Any] = {},
         cancellation_token: Optional[CancellationToken] = None,
     ) -> AsyncGenerator[Union[str, CreateResult], None]:
-        raise NotImplementedError("GracefulRetryClient.create_stream() is not implemented")
+        raise NotImplementedError(
+            "GracefulRetryClient.create_stream() is not implemented"
+        )
 
     async def close(self) -> None:
         for client in self._clients:
             await client.close()
 
     def actual_usage(self) -> RequestUsage:
-        raise NotImplementedError("GracefulRetryClient.actual_usage() is not implemented")
+        raise NotImplementedError(
+            "GracefulRetryClient.actual_usage() is not implemented"
+        )
         # prompt_tokens = sum([client.actual_usage().prompt_tokens for client in self._clients])
         # completion_tokens = sum([client.actual_usage().completion_tokens for client in self._clients])
         # return RequestUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
 
-    def total_usage(self) -> RequestUsage:  
-        raise NotImplementedError("GracefulRetryClient.total_usage() is not implemented")
+    def total_usage(self) -> RequestUsage:
+        raise NotImplementedError(
+            "GracefulRetryClient.total_usage() is not implemented"
+        )
         # prompt_tokens = sum([client.total_usage().prompt_tokens for client in self._clients])
         # completion_tokens = sum([client.total_usage().completion_tokens for client in self._clients])
         # return RequestUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
 
-    def count_tokens(self, messages: Sequence[LLMMessage], *, tools: Sequence[Tool | ToolSchema] = []) -> int:
+    def count_tokens(
+        self, messages: Sequence[LLMMessage], *, tools: Sequence[Tool | ToolSchema] = []
+    ) -> int:
         # Assume all clients are the same model
         return self._clients[0].count_tokens(messages, tools=tools)
 
-    def remaining_tokens(self, messages: Sequence[LLMMessage], *, tools: Sequence[Tool | ToolSchema] = []) -> int:
+    def remaining_tokens(
+        self, messages: Sequence[LLMMessage], *, tools: Sequence[Tool | ToolSchema] = []
+    ) -> int:
         return self._clients[0].remaining_tokens(messages=messages, tools=tools)
 
     @property
-    def capabilities(self) -> ModelCapabilities: # type: ignore
+    def capabilities(self) -> ModelCapabilities:  # type: ignore
         return self._clients[0].capabilities
 
     @property
@@ -191,7 +230,6 @@ class GracefulRetryClient(ChatCompletionClient):
 
 
 async def main():
-
     config_path = "experiments/endpoint_configs/multi_config.yaml"
     with open(config_path, "r") as f:
         if config_path.endswith((".yml", ".yaml")):
@@ -205,9 +243,11 @@ async def main():
     print("client made")
 
     print("making request")
-    result = await client.create(messages=[
-        UserMessage(content="test", source="test"),
-    ])
+    result = await client.create(
+        messages=[
+            UserMessage(content="test", source="test"),
+        ]
+    )
     print("request made")
     print(result)
 
