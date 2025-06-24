@@ -123,7 +123,7 @@ class SWEBenchTask(BaseTask):
 
 
 class SWEBenchCandidate(BaseCandidate):
-    prediction: str
+    pass
 
 
 class SWEBenchEvalResult(BaseEvalResult):

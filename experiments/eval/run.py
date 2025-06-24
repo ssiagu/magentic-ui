@@ -8,7 +8,15 @@ from magentic_ui.eval.benchmarks.webvoyager.webvoyager import DynamicMemoryType
 from typing import Optional, Dict, Any, Callable
 from magentic_ui.eval.core import run_evaluate_benchmark_func, evaluate_benchmark_func
 from systems.magentic_ui_multi_system import MagenticUIMultiAutonomousSystem
-from magentic_ui.eval.benchmarks import WebVoyagerBenchmark, OnlineMind2WebBenchmark
+from systems.magentic_ui_multi_system_m2w import MagenticUIMultiAutonomousSystemM2W
+from systems.magentic_ui_multi_system_swebench import (
+    MagenticUIMultiAutonomousSystemSWEBench,
+)
+from magentic_ui.eval.benchmarks import (
+    WebVoyagerBenchmark,
+    OnlineMind2WebBenchmark,
+    SWEBenchBenchmark,
+)
 from magentic_ui.eval.benchmark import Benchmark
 
 
@@ -130,6 +138,20 @@ def run_system_evaluation(
             return benchmark
 
         benchmark_constructor = create_benchmark_online_mind_2_web
+    elif args.dataset == "SWE-bench_Verified":
+
+        def create_benchmark_swebench(
+            data_dir: str = "SWE-bench_Verified", name: str = "SWE-bench_Verified"
+        ):
+            benchmark = SWEBenchBenchmark(
+                data_dir=data_dir,
+                name=name,
+                dynamic_memory_type=DynamicMemoryType(args.dynamic_memory_type),
+                dynamic_memory_file=args.dynamic_memory_file,
+            )
+            return benchmark
+
+        benchmark_constructor = create_benchmark_swebench
     else:
         raise ValueError(f"Dataset {args.dataset} not supported")
         # Load it into memory
@@ -172,17 +194,59 @@ def run_system_sim_user(args: argparse.Namespace, system_name: str) -> None:
     """
     config = load_config(args.config)
 
-    system = MagenticUIMultiAutonomousSystem(
-        endpoint_config_orch=config.get("orchestrator_client", []) if config else [],
-        endpoint_config_websurfer=config.get("web_surfer_client", []) if config else [],
-        endpoint_config_coder=config.get("coder_client", []) if config else [],
-        endpoint_config_file_surfer=config.get("file_surfer_client", [])
-        if config
-        else [],
-        web_surfer_only=args.web_surfer_only,
-        dataset_name=args.dataset,
-        use_local_browser=args.use_local_browser,
-    )
+    if args.dataset == "OnlineMind2Web":
+        system = MagenticUIMultiAutonomousSystemM2W(
+            endpoint_config_orch=config.get("orchestrator_client", [])
+            if config
+            else [],
+            endpoint_config_websurfer=config.get("web_surfer_client", [])
+            if config
+            else [],
+            endpoint_config_coder=config.get("coder_client", []) if config else [],
+            endpoint_config_file_surfer=config.get("file_surfer_client", [])
+            if config
+            else [],
+            web_surfer_only=args.web_surfer_only,
+            dataset_name=args.dataset,
+            use_local_browser=args.use_local_browser,
+        )
+    elif args.dataset == "SWE-bench_Verified":
+        if args.web_surfer_only:
+            raise ValueError("Web surfer only is not supported for SWEBench")
+
+        system = MagenticUIMultiAutonomousSystemSWEBench(
+            endpoint_config_orch=config.get("orchestrator_client", [])
+            if config
+            else [],
+            endpoint_config_websurfer=config.get("web_surfer_client", [])
+            if config
+            else [],
+            endpoint_config_coder=config.get("coder_client", []) if config else [],
+            endpoint_config_file_surfer=config.get("file_surfer_client", [])
+            if config
+            else [],
+            web_surfer_only=args.web_surfer_only,
+            dataset_name=args.dataset,
+            use_local_browser=args.use_local_browser,
+        )
+    elif args.dataset == "WebVoyager":
+        system = MagenticUIMultiAutonomousSystem(
+            endpoint_config_orch=config.get("orchestrator_client", [])
+            if config
+            else [],
+            endpoint_config_websurfer=config.get("web_surfer_client", [])
+            if config
+            else [],
+            endpoint_config_coder=config.get("coder_client", []) if config else [],
+            endpoint_config_file_surfer=config.get("file_surfer_client", [])
+            if config
+            else [],
+            web_surfer_only=args.web_surfer_only,
+            dataset_name=args.dataset,
+            use_local_browser=args.use_local_browser,
+        )
+    else:
+        raise ValueError(f"Dataset {args.dataset} not supported")
 
     run_system_evaluation(args, system, system_name, config)
 

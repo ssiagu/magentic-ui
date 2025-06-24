@@ -194,14 +194,26 @@ class GracefulRetryClient(ChatCompletionClient):
             await client.close()
 
     def actual_usage(self) -> RequestUsage:
-        prompt_tokens = sum([client.actual_usage().prompt_tokens for client in self._clients])
-        completion_tokens = sum([client.actual_usage().completion_tokens for client in self._clients])
-        return RequestUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
+        prompt_tokens = sum(
+            [client.actual_usage().prompt_tokens for client in self._clients]
+        )
+        completion_tokens = sum(
+            [client.actual_usage().completion_tokens for client in self._clients]
+        )
+        return RequestUsage(
+            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
+        )
 
     def total_usage(self) -> RequestUsage:
-        prompt_tokens = sum([client.total_usage().prompt_tokens for client in self._clients])
-        completion_tokens = sum([client.total_usage().completion_tokens for client in self._clients])
-        return RequestUsage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
+        prompt_tokens = sum(
+            [client.total_usage().prompt_tokens for client in self._clients]
+        )
+        completion_tokens = sum(
+            [client.total_usage().completion_tokens for client in self._clients]
+        )
+        return RequestUsage(
+            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
+        )
 
     def count_tokens(
         self, messages: Sequence[LLMMessage], *, tools: Sequence[Tool | ToolSchema] = []
