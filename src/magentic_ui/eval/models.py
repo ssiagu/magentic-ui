@@ -105,6 +105,31 @@ class CustomEvalResult(BaseEvalResult):
     pass
 
 
+# SWE-bench specific models
+class SWEBenchTask(BaseTask):
+    repo: str
+    instance_id: str
+    base_commit: str
+    patch: str
+    test_patch: str
+    problem_statement: str
+    hints_text: str
+    created_at: str
+    version: str
+    FAIL_TO_PASS: str
+    PASS_TO_PASS: str
+    environment_setup_commit: str
+    difficulty: str
+
+
+class SWEBenchCandidate(BaseCandidate):
+    prediction: str
+
+
+class SWEBenchEvalResult(BaseEvalResult):
+    pass
+
+
 # Union types for all tasks, candidates, and eval results
 AllTaskTypes = Union[
     BaseTask,
@@ -113,6 +138,7 @@ AllTaskTypes = Union[
     WebVoyagerTask,
     CustomTask,
     OnlineMind2WebTask,
+    SWEBenchTask,
 ]
 
 AllCandidateTypes = Union[
@@ -122,6 +148,7 @@ AllCandidateTypes = Union[
     WebVoyagerCandidate,
     CustomCandidate,
     OnlineMind2WebCandidate,
+    SWEBenchCandidate,
 ]
 
 AllEvalResultTypes = Union[
@@ -131,4 +158,5 @@ AllEvalResultTypes = Union[
     WebVoyagerEvalResult,
     CustomEvalResult,
     OnlineMind2WebEvalResult,
+    SWEBenchEvalResult,
 ]
