@@ -1,0 +1,288 @@
+import asyncio
+from collections import OrderedDict
+from typing import Any, List, Mapping, Optional, Sequence, Union
+
+from autogen_core import CancellationToken, Component, ComponentModel
+from autogen_core.models import (
+    ChatCompletionClient,
+    CreateResult,
+    LLMMessage,
+    ModelInfo,
+)
+from loguru import logger
+from pydantic import BaseModel
+
+
+class LoadBalancerChatCompletionClientConfig(BaseModel):
+    clients: List[Union[ComponentModel, Mapping[str, Any]]]
+
+
+class LoadBalancerChatCompletionClient(
+    ChatCompletionClient, Component[LoadBalancerChatCompletionClientConfig]
+):
+    """A load balancer that distributes requests among multiple ChatCompletionClients.
+
+    Simple logic:
+    1. Try a model
+    2. If the model fails, move it to the end of the list of models
+    3. Try the next model in the list
+    """
+
+    component_type = "model_client"
+    component_config_schema = LoadBalancerChatCompletionClientConfig
+    component_provider_override = "magentic_ui.models.LoadBalancerChatCompletionClient"
+
+    def __init__(self, clients: List[ChatCompletionClient]) -> None:
+        super().__init__()
+        if not clients:
+            raise ValueError("At least one client must be provided")
+
+        self._clients: OrderedDict[int, ChatCompletionClient] = OrderedDict() 
+        for client in clients:
+            self._clients[id(client)] = client
+        self._lock = asyncio.Lock()
+
+    @property
+    def model_info(self) -> ModelInfo:
+        """Return model info from the first available client."""
+        exceptions: List[Exception] = []
+
+        for client in self._clients.values():
+            try:
+                return client.model_info
+            except Exception as e:
+                logger.warning(f"Failed to get model info from client {client}: {e}")
+                exceptions.append(e)
+                continue
+
+        if exceptions:
+            raise ExceptionGroup("All clients failed to get model info", exceptions)
+        else:
+            raise ValueError("No clients available")
+
+    def actual_usage(self):
+        """Return aggregated actual usage from all clients."""
+        if not self._clients:
+            raise ValueError("No clients")
+
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        exceptions: List[Exception] = []
+
+        for client in self._clients.values():
+            try:
+                usage = client.actual_usage()
+                total_prompt_tokens += usage.prompt_tokens
+                total_completion_tokens += usage.completion_tokens
+            except Exception as e:
+                logger.warning(f"Failed to get actual usage from client {client}: {e}")
+                exceptions.append(e)
+                continue
+
+        if len(exceptions) == len(self._clients):
+            raise ExceptionGroup("All clients failed to get actual_usage", exceptions)
+
+        from autogen_core.models import RequestUsage
+
+        return RequestUsage(
+            prompt_tokens=total_prompt_tokens, completion_tokens=total_completion_tokens
+        )
+
+    def total_usage(self):
+        """Return aggregated total usage from all clients."""
+        if not self._clients:
+            raise ValueError("No clients")
+
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        exceptions: List[Exception] = []
+
+        for client in self._clients.values():
+            try:
+                usage = client.total_usage()
+                total_prompt_tokens += usage.prompt_tokens
+                total_completion_tokens += usage.completion_tokens
+            except Exception as e:
+                logger.warning(f"Failed to get total usage from client {client}: {e}")
+                exceptions.append(e)
+                continue
+
+        if len(exceptions) == len(self._clients):
+            raise ExceptionGroup("All clients failed to get total_usage", exceptions)
+
+        from autogen_core.models import RequestUsage
+
+        return RequestUsage(
+            prompt_tokens=total_prompt_tokens, completion_tokens=total_completion_tokens
+        )
+
+    def remaining_tokens(
+        self, messages: Sequence[LLMMessage], *, tools: Optional[Sequence[Any]] = None
+    ) -> int:
+        """Return remaining tokens from the first available client."""
+        exceptions: List[Exception] = []
+
+        for client in self._clients.values():
+            try:
+                if tools is not None:
+                    return client.remaining_tokens(messages, tools=tools)
+                else:
+                    return client.remaining_tokens(messages)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get remaining tokens from client {client}: {e}"
+                )
+                exceptions.append(e)
+                continue
+
+        if exceptions:
+            raise ExceptionGroup(
+                "All clients failed to get remaining tokens", exceptions
+            )
+        else:
+            raise ValueError("No clients available")
+
+    def count_tokens(
+        self, messages: Sequence[LLMMessage], *, tools: Optional[Sequence[Any]] = None
+    ) -> int:
+        """Return token count from the first available client."""
+        exceptions: List[Exception] = []
+
+        for client in self._clients.values():
+            try:
+                if tools is not None:
+                    return client.count_tokens(messages, tools=tools)
+                else:
+                    return client.count_tokens(messages)
+            except Exception as e:
+                logger.warning(f"Failed to count tokens from client {client}: {e}")
+                exceptions.append(e)
+                continue
+
+        if exceptions:
+            raise ExceptionGroup("All clients failed to count tokens", exceptions)
+        else:
+            raise ValueError("No clients available")
+
+    @property
+    def capabilities(self):
+        """Return capabilities from the first available client."""
+        exceptions: List[Exception] = []
+
+        for client in self._clients.values():
+            try:
+                return client.capabilities
+            except Exception as e:
+                logger.warning(f"Failed to get capabilities from client {client}: {e}")
+                exceptions.append(e)
+                continue
+
+        if exceptions:
+            raise ExceptionGroup("All clients failed to get capabilities", exceptions)
+        else:
+            raise ValueError("No clients available")
+
+    def create_stream(
+        self,
+        messages: Sequence[LLMMessage],
+        *,
+        cancellation_token: Optional[CancellationToken] = None,
+        **kwargs: Any,
+    ):
+        """Create a streaming response using the first available client."""
+        exceptions: List[Exception] = []
+
+        # For streaming, we'll try clients in order and move failed ones to the end
+        clients_to_try = self._clients.copy()
+
+        for client_id, client in clients_to_try.items():
+            try:
+                return client.create_stream(
+                    messages=messages, cancellation_token=cancellation_token, **kwargs
+                )
+            except Exception as e:
+                logger.warning(f"Streaming request failed with client {client}: {e}")
+                # Move the failed client to the end of the list
+                self._clients.move_to_end(client_id)
+                exceptions.append(e)
+                continue
+
+        if exceptions:
+            raise ExceptionGroup("All clients failed to create stream", exceptions)
+        else:
+            raise RuntimeError("No clients available for streaming")
+
+    async def create(
+        self,
+        messages: Sequence[LLMMessage],
+        *,
+        cancellation_token: Optional[CancellationToken] = None,
+        **kwargs: Any,
+    ) -> CreateResult:
+        """Create a chat completion using the load balancer with simple retry logic."""
+        async with self._lock:
+            clients_to_try = self._clients.copy()
+
+        exceptions: List[Exception] = []
+
+        for client_id, client in clients_to_try.items():
+            try:
+                result = await client.create(
+                    messages=messages, cancellation_token=cancellation_token, **kwargs
+                )
+
+                return result
+
+            except Exception as e:
+                async with self._lock:
+                    # Move the failing client to the end
+                    self._clients.move_to_end(client_id)
+
+                logger.warning(f"Request failed with client {client}: {e}")
+                exceptions.append(e)
+                continue
+
+        # If we get here, all clients failed
+        if exceptions:
+            raise ExceptionGroup("Request field with all clients.", exceptions)
+        else:
+            raise RuntimeError("No clients available")
+
+    async def close(self) -> None:
+        """Close all underlying clients."""
+        for client in self._clients.values():
+            try:
+                await client.close()
+            except Exception as e:
+                logger.warning(f"Error closing client {client}: {e}")
+
+    def _to_config(self) -> LoadBalancerChatCompletionClientConfig:
+        """Convert to configuration object."""
+        client_configs: List[Union[ComponentModel, Mapping[str, Any]]] = []
+
+        for client in self._clients.values():
+            client_configs.append(client.dump_component())
+
+        return LoadBalancerChatCompletionClientConfig(clients=client_configs)
+
+    @classmethod
+    def _from_config(
+        cls, config: LoadBalancerChatCompletionClientConfig
+    ) -> "LoadBalancerChatCompletionClient":
+        """Create instance from configuration."""
+        clients: List[ChatCompletionClient] = []
+        for client_config in config.clients:
+            try:
+                if isinstance(client_config, ComponentModel):
+                    client = ChatCompletionClient.load_component(client_config)
+                elif isinstance(client_config, dict):
+                    client = ChatCompletionClient.load_component(client_config)
+                else:
+                    logger.warning(f"Invalid client config type: {type(client_config)}")
+                    continue
+                clients.append(client)
+            except Exception as e:
+                logger.error(f"Failed to load client from config: {e}")
+                continue
+
+        return cls(clients)

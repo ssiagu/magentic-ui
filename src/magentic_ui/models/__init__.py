@@ -1,0 +1,3 @@
+from ._load_balancer import LoadBalancerChatCompletionClient, LoadBalancerChatCompletionClientConfig
+
+__all__ = ("LoadBalancerChatCompletionClient", "LoadBalancerChatCompletionClientConfig")

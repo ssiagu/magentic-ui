@@ -1,31 +1,27 @@
 import asyncio
-import json
-import os
-import aiofiles
-import logging
 import datetime
+import json
+import logging
+import os
 from pathlib import Path
-from PIL import Image
-from pydantic import BaseModel
-from typing import List, Dict, Any, Tuple
-from autogen_core.models import ChatCompletionClient
-from autogen_core import Image as AGImage
-from autogen_agentchat.base import TaskResult, ChatAgent
+from typing import Any, Dict, List, Tuple
+
+import aiofiles
+from autogen_agentchat.base import TaskResult
+from autogen_agentchat.conditions import TimeoutTermination
 from autogen_agentchat.messages import (
     MultiModalMessage,
     TextMessage,
 )
-from autogen_agentchat.conditions import TimeoutTermination
-from magentic_ui import OrchestratorConfig
+from autogen_core import Image as AGImage
+from magentic_ui.cli import PrettyConsole
 from magentic_ui.eval.basesystem import BaseSystem
-from magentic_ui.eval.models import BaseTask, BaseCandidate, WebVoyagerCandidate
-from magentic_ui.types import CheckpointEvent
-from magentic_ui.agents import WebSurfer, CoderAgent, FileSurfer
-from magentic_ui.teams import GroupChat
-from magentic_ui.tools.playwright.browser import VncDockerPlaywrightBrowser
-from magentic_ui.tools.playwright.browser import LocalPlaywrightBrowser
-from magentic_ui.tools.playwright.browser.utils import get_available_port
-
+from magentic_ui.eval.models import BaseCandidate, BaseTask, WebVoyagerCandidate
+from magentic_ui.magentic_ui_config import MagenticUIConfig
+from magentic_ui.task_team import get_task_team
+from magentic_ui.types import CheckpointEvent, RunPaths
+from PIL import Image
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 logging.getLogger("autogen").setLevel(logging.WARNING)
@@ -50,41 +46,70 @@ class LogEventSystem(BaseModel):
     metadata: Dict[str, str] = {}
 
 
+BASELINE_MAGUI_CONFIG = MagenticUIConfig(
+    # Configuration for evaluation system
+    cooperative_planning=False,
+    autonomous_execution=True,
+    allow_follow_up_input=False,
+    model_context_token_limit=110000,
+    max_turns=20,
+    allow_for_replans=True,
+    do_bing_search=False,
+    websurfer_loop=False,
+    retrieve_relevant_plans="never",
+    approval_policy="never",
+    max_actions_per_step=10,
+    multiple_tools_per_call=False,
+    browser_headless=True,
+    browser_local=False,
+    inside_docker=False,
+    no_overwrite_of_task=True,
+    # Final answer prompt template - will be formatted with task question
+    final_answer_prompt="""
+output a FINAL ANSWER to the task.
+
+The real task is: {task}
+
+To output the final answer, use the following template: [any explanation for final answer] FINAL ANSWER: [YOUR FINAL ANSWER]
+Don't put your answer in brackets or quotes. 
+Your FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings.
+ADDITIONALLY, your FINAL ANSWER MUST adhere to any formatting instructions specified in the original question (e.g., alphabetization, sequencing, units, rounding, decimal places, etc.)
+If you are asked for a number, express it numerically (i.e., with digits rather than words), don't use commas, and don't include units such as $ or percent signs unless specified otherwise.
+If you are asked for a string, don't use articles or abbreviations (e.g. for cities), unless specified otherwise. Don't output any final sentence punctuation such as '.', '!', or '?'.
+If you are asked for a comma separated list, apply the above rules depending on whether the elements are numbers or strings.
+You must answer the question and provide a smart guess if you are unsure. Provide a guess even if you have no idea about the answer.
+""".strip(),
+)
+
+
 class MagenticUIAutonomousSystem(BaseSystem):
     """
     MagenticUIAutonomousSystem
 
+    A system that uses MagenticUIConfig for configuration instead of individual parameters.
+
     Args:
-        name (str): Name of the system instance.
-        web_surfer_only (bool): If True, only the web surfer agent is used.
-        endpoint_config_orch (Optional[Dict]): Orchestrator model client config.
-        endpoint_config_websurfer (Optional[Dict]): WebSurfer agent model client config.
-        endpoint_config_coder (Optional[Dict]): Coder agent model client config.
-        endpoint_config_file_surfer (Optional[Dict]): FileSurfer agent model client config.
-        dataset_name (str): Name of the evaluation dataset (e.g., "Gaia").
-        use_local_browser (bool): If True, use the local browser.
+        config (MagenticUIConfig | Dict[str, Any] | None): Configuration for the MagenticUI system.
+            If None, uses the BASELINE_MAGUI_CONFIG. Can be a MagenticUIConfig instance or a dictionary.
+        name (str): Name of the system instance. Default: "MagenticUIAutonomousSystem".
+        dataset_name (str): Name of the evaluation dataset (e.g., "Gaia"). Default: "Gaia".
     """
 
     def __init__(
         self,
-        endpoint_config_orch: Dict[str, Any],
-        endpoint_config_websurfer: Dict[str, Any],
-        endpoint_config_coder: Dict[str, Any],
-        endpoint_config_file_surfer: Dict[str, Any],
+        config: MagenticUIConfig | Dict[str, Any] | None,
         name: str = "MagenticUIAutonomousSystem",
         dataset_name: str = "Gaia",
-        web_surfer_only: bool = False,
-        use_local_browser: bool = False,
+        debug: bool = False,
     ):
+        if config is None:
+            config = BASELINE_MAGUI_CONFIG.model_copy()
+        config = MagenticUIConfig.model_validate(config)
         super().__init__(name)
         self.candidate_class = WebVoyagerCandidate
-        self.endpoint_config_orch = endpoint_config_orch
-        self.endpoint_config_websurfer = endpoint_config_websurfer
-        self.endpoint_config_coder = endpoint_config_coder
-        self.endpoint_config_file_surfer = endpoint_config_file_surfer
-        self.web_surfer_only = web_surfer_only
+        self.config = config
         self.dataset_name = dataset_name
-        self.use_local_browser = use_local_browser
+        self.debug = debug
 
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
@@ -111,111 +136,26 @@ class MagenticUIAutonomousSystem(BaseSystem):
             messages_so_far: List[LogEventSystem] = []
 
             task_question: str = task.question
-            # Adapted from MagenticOne. Minor change is to allow an explanation of the final answer before the final answer.
-            FINAL_ANSWER_PROMPT = f"""
-            output a FINAL ANSWER to the task.
-
-            The real task is: {task_question}
-
-
-            To output the final answer, use the following template: [any explanation for final answer] FINAL ANSWER: [YOUR FINAL ANSWER]
-            Don't put your answer in brackets or quotes. 
-            Your FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings.
-            ADDITIONALLY, your FINAL ANSWER MUST adhere to any formatting instructions specified in the original question (e.g., alphabetization, sequencing, units, rounding, decimal places, etc.)
-            If you are asked for a number, express it numerically (i.e., with digits rather than words), don't use commas, and don't include units such as $ or percent signs unless specified otherwise.
-            If you are asked for a string, don't use articles or abbreviations (e.g. for cities), unless specified otherwise. Don't output any final sentence punctuation such as '.', '!', or '?'.
-            If you are asked for a comma separated list, apply the above rules depending on whether the elements are numbers or strings.
-            You must answer the question and provide a smart guess if you are unsure. Provide a guess even if you have no idea about the answer.
-            """
             # Step 2: Create the Magentic-UI team
             # TERMINATION CONDITION
             termination_condition = TimeoutTermination(
                 timeout_seconds=60 * 15
             )  # 15 minutes
-            model_context_token_limit = 110000
-            # ORCHESTRATOR CONFIGURATION
-            orchestrator_config = OrchestratorConfig(
-                cooperative_planning=False,
-                autonomous_execution=True,
-                allow_follow_up_input=False,
-                final_answer_prompt=FINAL_ANSWER_PROMPT,
-                model_context_token_limit=model_context_token_limit,
-                no_overwrite_of_task=True,
-            )
 
-            model_client_orch = ChatCompletionClient.load_component(
-                self.endpoint_config_orch
+            # --- Use get_task_team instead of manual team/agent construction ---
+            # Prepare RunPaths (use output_dir for both internal and external if not in Docker)
+            run_paths = RunPaths(
+                internal_run_dir=Path(output_dir),
+                external_run_dir=Path(output_dir),
+                internal_root_dir=Path(output_dir),
+                external_root_dir=Path(output_dir),
+                run_suffix=task_id,
             )
-            model_client_coder = ChatCompletionClient.load_component(
-                self.endpoint_config_coder
-            )
-            model_client_websurfer = ChatCompletionClient.load_component(
-                self.endpoint_config_websurfer
-            )
-            model_client_file_surfer = ChatCompletionClient.load_component(
-                self.endpoint_config_file_surfer
-            )
-
-            # launch the browser
-            if self.use_local_browser:
-                browser = LocalPlaywrightBrowser(headless=True)
-            else:
-                playwright_port, socket = get_available_port()
-                novnc_port, socket_vnc = get_available_port()
-                socket.close()
-                socket_vnc.close()
-                browser = VncDockerPlaywrightBrowser(
-                    bind_dir=Path(output_dir),
-                    playwright_port=playwright_port,
-                    novnc_port=novnc_port,
-                    inside_docker=False,
-                )
-                browser_location_log = LogEventSystem(
-                    source="browser",
-                    content=f"Browser at novnc port {novnc_port} and playwright port {playwright_port} launched",
-                    timestamp=datetime.datetime.now().isoformat(),
-                )
-                messages_so_far.append(browser_location_log)
-
-            # Create web surfer
-            web_surfer = WebSurfer(
-                name="web_surfer",
-                model_client=model_client_websurfer,
-                browser=browser,
-                animate_actions=False,
-                max_actions_per_step=10,
-                start_page="about:blank" if task.url_path == "" else task.url_path,
-                downloads_folder=os.path.abspath(output_dir),
-                debug_dir=os.path.abspath(output_dir),
-                model_context_token_limit=model_context_token_limit,
-                to_save_screenshots=True,
-            )
-
-            agent_list: List[ChatAgent] = [web_surfer]
-            if not self.web_surfer_only:
-                coder_agent = CoderAgent(
-                    name="coder_agent",
-                    model_client=model_client_coder,
-                    work_dir=os.path.abspath(output_dir),
-                    model_context_token_limit=model_context_token_limit,
-                )
-
-                file_surfer = FileSurfer(
-                    name="file_surfer",
-                    model_client=model_client_file_surfer,
-                    work_dir=os.path.abspath(output_dir),
-                    bind_dir=os.path.abspath(output_dir),
-                    model_context_token_limit=model_context_token_limit,
-                )
-                agent_list.append(coder_agent)
-                agent_list.append(file_surfer)
-            team = GroupChat(
-                participants=agent_list,
-                orchestrator_config=orchestrator_config,
-                model_client=model_client_orch,
+            team = await get_task_team(
+                magentic_ui_config=self.config,
+                paths=run_paths,
                 termination_condition=termination_condition,
             )
-            await team.lazy_init()
             # Step 3: Prepare the task message
             answer: str = ""
             # check if file name is an image if it exists
@@ -233,8 +173,11 @@ class MagenticUIAutonomousSystem(BaseSystem):
                 )
             else:
                 task_message = TextMessage(content=task_question, source="user")
+
             # Step 4: Run the team on the task
-            async for message in team.run_stream(task=task_message):
+            async for message in PrettyConsole(
+                team.run_stream(task=task_message), debug=self.debug
+            ):
                 # Store log events
                 message_str: str = ""
                 try:
@@ -258,7 +201,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
                     pass
 
                 # save to file
-                logger.info(f"Run in progress: {task_id}, message: {message_str}")
+                # logger.info(f"Run in progress: {task_id}, message: {message_str}")
                 async with aiofiles.open(
                     f"{output_dir}/{task_id}_messages.json", "w"
                 ) as f:
@@ -276,52 +219,25 @@ class MagenticUIAutonomousSystem(BaseSystem):
                 answer, str
             ), f"Expected answer to be a string, got {type(answer)}"
 
-            # save the usage of each of the client in a usage json file
-            def get_usage(model_client: ChatCompletionClient) -> Dict[str, int]:
-                return {
-                    "prompt_tokens": model_client.total_usage().prompt_tokens,
-                    "completion_tokens": model_client.total_usage().completion_tokens,
-                }
-
-            usage_json = {
-                "orchestrator": get_usage(model_client_orch),
-                "websurfer": get_usage(model_client_websurfer),
-                "coder": get_usage(model_client_coder),
-                "file_surfer": get_usage(model_client_file_surfer),
-            }
-            usage_json["total_without_user_proxy"] = {
-                "prompt_tokens": sum(
-                    usage_json[key]["prompt_tokens"]
-                    for key in usage_json
-                    if key != "user_proxy"
-                ),
-                "completion_tokens": sum(
-                    usage_json[key]["completion_tokens"]
-                    for key in usage_json
-                    if key != "user_proxy"
-                ),
-            }
-            with open(f"{output_dir}/model_tokens_usage.json", "w") as f:
-                json.dump(usage_json, f)
-
-            await team.close()
             # Step 5: Prepare the screenshots
-            screenshots_paths = []
+            screenshots_paths: List[Tuple[str, str]] = []
             # check the directory for screenshots which start with screenshot_raw_
             for file in os.listdir(output_dir):
                 if file.startswith("screenshot_raw_"):
                     timestamp = file.split("_")[1]
                     screenshots_paths.append(
-                        [timestamp, os.path.join(output_dir, file)]
+                        (timestamp, os.path.join(output_dir, file))
                     )
 
             # restrict to last 15 screenshots by timestamp
             screenshots_paths = sorted(screenshots_paths, key=lambda x: x[0])[-15:]
-            screenshots_paths = [x[1] for x in screenshots_paths]
-            return answer, screenshots_paths
+            screenshot_files: List[str] = [x[1] for x in screenshots_paths]
+            return answer, screenshot_files
 
         # Step 6: Return the answer and screenshots
         answer, screenshots_paths = asyncio.run(_runner())
-        answer = WebVoyagerCandidate(answer=answer, screenshots=screenshots_paths)
-        self.save_answer_to_disk(task_id, answer, output_dir)
-        return answer
+        answer_candidate = WebVoyagerCandidate(
+            answer=answer, screenshots=screenshots_paths
+        )
+        self.save_answer_to_disk(task_id, answer_candidate, output_dir)
+        return answer_candidate

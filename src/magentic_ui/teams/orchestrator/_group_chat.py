@@ -2,6 +2,7 @@ import logging
 from typing import Callable, List, Dict, Any, Mapping, AsyncGenerator, Sequence
 import json
 import asyncio
+from loguru import logger
 from pydantic import BaseModel
 import inspect
 
@@ -148,14 +149,26 @@ class GroupChat(BaseGroupChat, Component[GroupChatConfig]):
                 await agent.resume()  # type: ignore
 
     async def lazy_init(self) -> None:
-        await asyncio.gather(
+        results = await asyncio.gather(
             *(
                 getattr(agent, "lazy_init")()
                 for agent in self._participants
                 if hasattr(agent, "lazy_init")
                 and inspect.iscoroutinefunction(getattr(agent, "lazy_init"))
-            )
+            ),
+            return_exceptions=True
         )
+        
+        exceptions: List[Exception | BaseException] = [e for e in results if isinstance(e, (Exception, BaseException))]
+        
+        if exceptions:
+            msg = "Caught exceptions during lazy_init"
+            # Hack to get stack trace
+            try:
+                raise ExceptionGroup(msg, exceptions) # type: ignore
+            except Exception:
+                logger.exception(msg)
+                raise
 
     def _to_config(self) -> GroupChatConfig:
         return GroupChatConfig(

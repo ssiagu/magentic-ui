@@ -6,6 +6,8 @@ import datetime
 from typing import Optional, Dict, Any, Callable
 from magentic_ui.eval.core import run_evaluate_benchmark_func, evaluate_benchmark_func
 from systems.magentic_ui_sim_user_system import MagenticUISimUserSystem
+from systems.magentic_ui_system import MagenticUIAutonomousSystem
+from magentic_ui.magentic_ui_config import MagenticUIConfig
 from magentic_ui.eval.benchmarks import WebVoyagerBenchmark
 from magentic_ui.eval.benchmark import Benchmark
 from autogen_core.models import ChatCompletionClient
@@ -84,7 +86,6 @@ def run_system_evaluation(
     args: argparse.Namespace,
     system_constructor: Any,
     system_name: str,
-    config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     Common function to run system evaluation to avoid code duplication.
@@ -93,7 +94,6 @@ def run_system_evaluation(
         args (argparse.Namespace): The arguments namespace containing experiment parameters.
         system_constructor (Any): The system instance or constructor to evaluate.
         system_name (str): The name of the system being evaluated.
-        config (Optional[Dict[str, Any]]): Optional configuration dictionary.
     """
     benchmark_constructor: Optional[Callable[..., Benchmark]] = None
     if args.dataset == "WebVoyager":
@@ -144,6 +144,7 @@ def run_system_evaluation(
             system_constructor=system_constructor,
             subsample=args.subsample if args.subsample < 1 else None,
             redo_eval=args.redo_eval,
+            seed=args.seed,
         )
 
 
@@ -171,7 +172,30 @@ def run_system_sim_user(args: argparse.Namespace, system_name: str) -> None:
         dataset_name=args.dataset,
     )
 
-    run_system_evaluation(args, system, system_name, config)
+    run_system_evaluation(args, system, system_name)
+
+
+def run_system_autonomous(args: argparse.Namespace, system_name: str) -> None:
+    """
+    Run evaluation using the MagenticUIAutonomousSystem, which uses MagenticUIConfig.
+
+    Args:
+        args (argparse.Namespace): The arguments namespace containing experiment parameters.
+        system_name (str): The name of the system being evaluated.
+    """
+    if args.config:
+        config = load_config(args.config)
+        config = MagenticUIConfig.model_validate(config)
+    else:
+        config = None
+
+    system = MagenticUIAutonomousSystem(
+        config=config,
+        name=system_name,
+        dataset_name=args.dataset,
+        debug=args.debug,
+    )
+    run_system_evaluation(args, system, system_name)
 
 
 def main() -> None:
@@ -194,7 +218,7 @@ def main() -> None:
     parser.add_argument("--split", default="validation-1", help="Dataset split to use")
     parser.add_argument("--dataset", default="Gaia", help="Dataset name")
     parser.add_argument(
-        "--config", required=False, help="Path to endpoint configuration file for LLMs"
+        "--config", required=False, help="Path to Magentic-UI configuration file"
     )
     parser.add_argument(
         "--run-id", type=int, default=1, help="Run ID for the experiment"
@@ -246,6 +270,12 @@ def main() -> None:
         help="Redo evaluation even if results exist (default: False)",
     )
 
+    parser.add_argument("--seed", default=None, type=int, help="Seed for subsampling.")
+
+    parser.add_argument(
+        "--debug", default=False, action="store_true", help="Set logging level to DEBUG"
+    )
+
     args = parser.parse_args()
 
     # Determine system name based on arguments
@@ -260,7 +290,13 @@ def main() -> None:
     save_experiment_args(args, system_name)
 
     # Run the appropriate system
-    run_system_sim_user(args, system_name)
+    if args.system_type == "magentic-ui-sim-user":
+        raise NotImplementedError("Need to update for MagenticUIConfig usage")
+        run_system_sim_user(args, system_name)
+    elif args.system_type == "magentic-ui":
+        run_system_autonomous(args, system_name)
+    else:
+        raise ValueError(f"Unrecognized system type: {args.system_type}")
 
 
 if __name__ == "__main__":

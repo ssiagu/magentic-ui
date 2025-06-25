@@ -312,7 +312,7 @@ async def _PrettyConsole(
     debug: bool = False,
     no_inline_images: bool = False,  # reserved for future use
     output_stats: bool = False,  # reserved for future use
-) -> Any:
+):
     current_agent: Optional[str] = None
     previous_agent: Optional[str] = None
     last_processed: Any = None
@@ -412,8 +412,9 @@ async def _PrettyConsole(
 
     async for m in stream:
         await process(m)
+        yield m
 
-    return last_processed
+    yield last_processed
 
 
 # Public alias

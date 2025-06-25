@@ -1,28 +1,200 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from autogen_agentchat.agents import UserProxyAgent
-from autogen_agentchat.base import ChatAgent
-from autogen_core import ComponentModel
-from autogen_core.models import ChatCompletionClient
+from autogen_agentchat.base import ChatAgent, TerminationCondition
+from autogen_agentchat.teams import BaseGroupChat
+from autogen_core import AgentRuntime, ComponentModel
+from autogen_core.models import ChatCompletionClient, UserMessage
+from loguru import logger
+
+from magentic_ui.tools.playwright.browser.base_playwright_browser import (
+    PlaywrightBrowser,
+)
+from magentic_ui.tools.url_status_manager import UrlStatus
 
 from .agents import USER_PROXY_DESCRIPTION, CoderAgent, FileSurfer, WebSurfer
 from .agents.mcp import McpAgent
 from .agents.users import DummyUserProxy, MetadataUserProxy
-from .agents.web_surfer import WebSurferConfig
 from .approval_guard import (
     ApprovalConfig,
     ApprovalGuard,
     ApprovalGuardContext,
-    BaseApprovalGuard,
 )
 from .input_func import InputFuncType, make_agentchat_input_func
 from .learning.memory_provider import MemoryControllerProvider
-from .magentic_ui_config import MagenticUIConfig, ModelClientConfigs
+from .magentic_ui_config import (
+    MagenticUIConfig,
+)
 from .teams import GroupChat, RoundRobinGroupChat
-from .teams.orchestrator.orchestrator_config import OrchestratorConfig
 from .tools.playwright.browser import get_browser_resource_config
 from .types import RunPaths
 from .utils import get_internal_urls
+
+ModelClientType = ChatCompletionClient | ComponentModel | Dict[str, Any]
+
+
+def get_chat_completion_client(
+    client: ModelClientType,
+):
+    if isinstance(client, ChatCompletionClient):
+        return client
+    else:
+        return ChatCompletionClient.load_component(client)
+
+
+def get_browser_component_model(config: MagenticUIConfig, paths: RunPaths):
+    return get_browser_resource_config(
+        paths.external_run_dir,
+        config.browser.novnc_port,
+        config.browser.playwright_port,
+        config.inside_docker,
+        headless=config.browser.headless,
+        local=config.browser.local,
+    )
+
+
+def get_websurfer(
+    config: MagenticUIConfig,
+    browser_component_model: ComponentModel,
+    approval_guard: ApprovalGuard | None,
+    paths: RunPaths,
+):
+    url_statuses: Dict[str, UrlStatus] | None = None
+    if config.orchestrator.allowed_websites:
+        url_statuses = {key: "allowed" for key in config.orchestrator.allowed_websites}
+
+    with ApprovalGuardContext.populate_context(approval_guard):
+        return WebSurfer(
+            name="web_surfer",
+            model_client=get_chat_completion_client(
+                config.model_client_configs.web_surfer
+            ),
+            browser=PlaywrightBrowser.load_component(browser_component_model),
+            single_tab_mode=False,
+            max_actions_per_step=config.web_surfer.max_actions_per_step,
+            url_statuses=url_statuses,
+            url_block_list=get_internal_urls(config.inside_docker, paths),
+            multiple_tools_per_call=config.web_surfer.multiple_tools_per_call,
+            downloads_folder=str(paths.internal_run_dir),
+            debug_dir=str(paths.internal_run_dir),
+            animate_actions=config.web_surfer.animate_actions,
+            start_page=config.web_surfer.start_page,
+            use_action_guard=config.web_surfer.use_action_guard,
+            to_save_screenshots=config.web_surfer.to_save_screenshots,
+        )
+
+
+def get_user_proxy(config: MagenticUIConfig, input_func: Optional[InputFuncType]):
+    if config.user_proxy.type == "dummy":
+        return DummyUserProxy(name="user_proxy")
+    elif config.user_proxy.type == "metadata":
+        assert (
+            config.user_proxy.task is not None
+        ), "Task must be provided for metadata user proxy"
+        assert (
+            config.user_proxy.hints is not None
+        ), "Hints must be provided for metadata user proxy"
+        assert (
+            config.user_proxy.answer is not None
+        ), "Answer must be provided for metadata user proxy"
+        return MetadataUserProxy(
+            name="user_proxy",
+            description="Metadata User Proxy Agent",
+            task=config.user_proxy.task,
+            helpful_task_hints=config.user_proxy.hints,
+            task_answer=config.user_proxy.answer,
+            model_client=get_chat_completion_client(
+                config.model_client_configs.metadata_user
+            ),
+        )
+    else:
+        user_proxy_input_func = make_agentchat_input_func(input_func)
+        return UserProxyAgent(
+            description=USER_PROXY_DESCRIPTION,
+            name="user_proxy",
+            input_func=user_proxy_input_func,
+        )
+
+
+def get_approval_guard(config: MagenticUIConfig, input_func: Optional[InputFuncType]):
+    if config.user_proxy.type in ["dummy", "metadata"]:
+
+        def always_yes_input(prompt: str, input_type: str = "text_input") -> str:
+            return "yes"
+
+        return ApprovalGuard(
+            input_func=always_yes_input,
+            default_approval=False,
+            model_client=get_chat_completion_client(
+                config.model_client_configs.action_guard
+            ),
+            config=ApprovalConfig(approval_policy=config.approval_policy),
+        )
+    elif input_func is not None:
+        return ApprovalGuard(
+            input_func=input_func,
+            default_approval=False,
+            model_client=get_chat_completion_client(
+                config.model_client_configs.action_guard
+            ),
+            config=ApprovalConfig(approval_policy=config.approval_policy),
+        )
+    return None
+
+
+def get_file_surfer(
+    config: MagenticUIConfig,
+    approval_guard: ApprovalGuard | None,
+    paths: RunPaths,
+):
+    return FileSurfer(
+        name="file_surfer",
+        model_client=get_chat_completion_client(
+            config.model_client_configs.file_surfer
+        ),
+        work_dir=paths.internal_run_dir,
+        bind_dir=paths.external_run_dir,
+        model_context_token_limit=config.model_client_configs.model_context_token_limit,
+        approval_guard=approval_guard,
+    )
+
+
+def get_coder_surfer(
+    config: MagenticUIConfig,
+    approval_guard: ApprovalGuard | None,
+    paths: RunPaths,
+):
+    return CoderAgent(
+        name="coder_agent",
+        model_client=get_chat_completion_client(config.model_client_configs.coder),
+        work_dir=paths.internal_run_dir,
+        bind_dir=paths.external_run_dir,
+        model_context_token_limit=config.model_client_configs.model_context_token_limit,
+        approval_guard=approval_guard,
+    )
+
+
+def get_mcp_agents(config: MagenticUIConfig):
+    # Setup any mcp_agents
+    return [
+        # TODO: Init from constructor?
+        McpAgent._from_config(mcp_agent_config)  # type: ignore
+        for mcp_agent_config in config.mcp_agent_configs
+    ]
+
+
+def get_memory_provider(config: MagenticUIConfig, paths: RunPaths):
+    if (
+        config.orchestrator.memory_controller_key is not None
+        and config.orchestrator.retrieve_relevant_plans in ["reuse", "hint"]
+    ):
+        return MemoryControllerProvider(
+            internal_workspace_root=paths.internal_root_dir,
+            external_workspace_root=paths.external_root_dir,
+            inside_docker=config.inside_docker,
+        )
+    else:
+        return None
 
 
 async def get_task_team(
@@ -30,6 +202,8 @@ async def get_task_team(
     input_func: Optional[InputFuncType] = None,
     *,
     paths: RunPaths,
+    runtime: AgentRuntime | None = None,
+    termination_condition: TerminationCondition | None = None,
 ) -> GroupChat | RoundRobinGroupChat:
     """
     Creates and returns a GroupChat team with specified configuration.
@@ -44,209 +218,58 @@ async def get_task_team(
     if magentic_ui_config is None:
         magentic_ui_config = MagenticUIConfig()
 
-    def get_model_client(
-        model_client_config: Union[ComponentModel, Dict[str, Any], None],
-        is_action_guard: bool = False,
-    ) -> ChatCompletionClient:
-        if model_client_config is None:
-            return ChatCompletionClient.load_component(
-                ModelClientConfigs.get_default_client_config()
-                if not is_action_guard
-                else ModelClientConfigs.get_default_action_guard_config()
-            )
-        return ChatCompletionClient.load_component(model_client_config)
-
     if not magentic_ui_config.inside_docker:
         assert (
             paths.external_run_dir == paths.internal_run_dir
         ), "External and internal run dirs must be the same in non-docker mode"
 
-    model_client_orch = get_model_client(
-        magentic_ui_config.model_client_configs.orchestrator
+    user_proxy = get_user_proxy(magentic_ui_config, input_func)
+    
+    approval_guard = get_approval_guard(magentic_ui_config, input_func)
+    browser_component_model, _novnc_port, _playwright_port = (
+        get_browser_component_model(magentic_ui_config, paths)
     )
-    approval_guard: BaseApprovalGuard | None = None
-
-    approval_policy = (
-        magentic_ui_config.approval_policy
-        if magentic_ui_config.approval_policy
-        else "never"
-    )
-
-    websurfer_loop_team: bool = (
-        magentic_ui_config.websurfer_loop if magentic_ui_config else False
+    web_surfer = get_websurfer(
+        magentic_ui_config, browser_component_model, approval_guard, paths
     )
 
-    model_client_coder = get_model_client(magentic_ui_config.model_client_configs.coder)
-    model_client_file_surfer = get_model_client(
-        magentic_ui_config.model_client_configs.file_surfer
-    )
-    browser_resource_config, _novnc_port, _playwright_port = (
-        get_browser_resource_config(
-            paths.external_run_dir,
-            magentic_ui_config.novnc_port,
-            magentic_ui_config.playwright_port,
-            magentic_ui_config.inside_docker,
-            headless=magentic_ui_config.browser_headless,
-            local=magentic_ui_config.browser_local,
-        )
-    )
-
-    orchestrator_config = OrchestratorConfig(
-        cooperative_planning=magentic_ui_config.cooperative_planning,
-        autonomous_execution=magentic_ui_config.autonomous_execution,
-        allowed_websites=magentic_ui_config.allowed_websites,
-        plan=magentic_ui_config.plan,
-        model_context_token_limit=magentic_ui_config.model_context_token_limit,
-        do_bing_search=magentic_ui_config.do_bing_search,
-        retrieve_relevant_plans=magentic_ui_config.retrieve_relevant_plans,
-        memory_controller_key=magentic_ui_config.memory_controller_key,
-        allow_follow_up_input=magentic_ui_config.allow_follow_up_input,
-        final_answer_prompt=magentic_ui_config.final_answer_prompt,
-    )
-    websurfer_model_client = magentic_ui_config.model_client_configs.web_surfer
-    if websurfer_model_client is None:
-        websurfer_model_client = ModelClientConfigs.get_default_client_config()
-    websurfer_config = WebSurferConfig(
-        name="web_surfer",
-        model_client=websurfer_model_client,
-        browser=browser_resource_config,
-        single_tab_mode=False,
-        max_actions_per_step=magentic_ui_config.max_actions_per_step,
-        url_statuses={key: "allowed" for key in orchestrator_config.allowed_websites}
-        if orchestrator_config.allowed_websites
-        else None,
-        url_block_list=get_internal_urls(magentic_ui_config.inside_docker, paths),
-        multiple_tools_per_call=magentic_ui_config.multiple_tools_per_call,
-        downloads_folder=str(paths.internal_run_dir),
-        debug_dir=str(paths.internal_run_dir),
-        animate_actions=True,
-        start_page=None,
-        use_action_guard=True,
-        to_save_screenshots=False,
-    )
-
-    user_proxy: DummyUserProxy | MetadataUserProxy | UserProxyAgent
-
-    if magentic_ui_config.user_proxy_type == "dummy":
-        user_proxy = DummyUserProxy(name="user_proxy")
-    elif magentic_ui_config.user_proxy_type == "metadata":
-        assert (
-            magentic_ui_config.task is not None
-        ), "Task must be provided for metadata user proxy"
-        assert (
-            magentic_ui_config.hints is not None
-        ), "Hints must be provided for metadata user proxy"
-        assert (
-            magentic_ui_config.answer is not None
-        ), "Answer must be provided for metadata user proxy"
-        user_proxy = MetadataUserProxy(
-            name="user_proxy",
-            description="Metadata User Proxy Agent",
-            task=magentic_ui_config.task,
-            helpful_task_hints=magentic_ui_config.hints,
-            task_answer=magentic_ui_config.answer,
-            model_client=model_client_orch,
-        )
-    else:
-        user_proxy_input_func = make_agentchat_input_func(input_func)
-        user_proxy = UserProxyAgent(
-            description=USER_PROXY_DESCRIPTION,
-            name="user_proxy",
-            input_func=user_proxy_input_func,
-        )
-
-    if magentic_ui_config.user_proxy_type in ["dummy", "metadata"]:
-        model_client_action_guard = get_model_client(
-            magentic_ui_config.model_client_configs.action_guard,
-            is_action_guard=True,
-        )
-
-        # Simple approval function that always returns yes
-        def always_yes_input(prompt: str, input_type: str = "text_input") -> str:
-            return "yes"
-
-        approval_guard = ApprovalGuard(
-            input_func=always_yes_input,
-            default_approval=False,
-            model_client=model_client_action_guard,
-            config=ApprovalConfig(
-                approval_policy=approval_policy,
-            ),
-        )
-    elif input_func is not None:
-        model_client_action_guard = get_model_client(
-            magentic_ui_config.model_client_configs.action_guard
-        )
-        approval_guard = ApprovalGuard(
-            input_func=input_func,
-            default_approval=False,
-            model_client=model_client_action_guard,
-            config=ApprovalConfig(
-                approval_policy=approval_policy,
-            ),
-        )
-    with ApprovalGuardContext.populate_context(approval_guard):
-        web_surfer = WebSurfer.from_config(websurfer_config)
-    if websurfer_loop_team:
+    team: BaseGroupChat
+    if magentic_ui_config.web_surfer.loop_only:
         # simplified team of only the web surfer
         team = RoundRobinGroupChat(
             participants=[web_surfer, user_proxy],
             max_turns=10000,
         )
-        await team.lazy_init()
-        return team
-
-    coder_agent = CoderAgent(
-        name="coder_agent",
-        model_client=model_client_coder,
-        work_dir=paths.internal_run_dir,
-        bind_dir=paths.external_run_dir,
-        model_context_token_limit=magentic_ui_config.model_context_token_limit,
-        approval_guard=approval_guard,
-    )
-
-    file_surfer = FileSurfer(
-        name="file_surfer",
-        model_client=model_client_file_surfer,
-        work_dir=paths.internal_run_dir,
-        bind_dir=paths.external_run_dir,
-        model_context_token_limit=magentic_ui_config.model_context_token_limit,
-        approval_guard=approval_guard,
-    )
-
-    # Setup any mcp_agents
-    mcp_agents: List[McpAgent] = [
-        # TODO: Init from constructor?
-        McpAgent._from_config(config)  # type: ignore
-        for config in magentic_ui_config.mcp_agent_configs
-    ]
-
-    if (
-        orchestrator_config.memory_controller_key is not None
-        and orchestrator_config.retrieve_relevant_plans in ["reuse", "hint"]
-    ):
-        memory_provider = MemoryControllerProvider(
-            internal_workspace_root=paths.internal_root_dir,
-            external_workspace_root=paths.external_root_dir,
-            inside_docker=magentic_ui_config.inside_docker,
-        )
     else:
-        memory_provider = None
+        coder_agent = get_coder_surfer(magentic_ui_config, approval_guard, paths)
+        file_surfer = get_file_surfer(magentic_ui_config, approval_guard, paths)
+        mcp_agents = get_mcp_agents(magentic_ui_config)
+        memory_provider = get_memory_provider(magentic_ui_config, paths)
 
-    team_participants: List[ChatAgent] = [
-        web_surfer,
-        user_proxy,
-        coder_agent,
-        file_surfer,
-    ]
-    team_participants.extend(mcp_agents)
+        team_participants: List[ChatAgent] = [
+            web_surfer,
+            user_proxy,
+            coder_agent,
+            file_surfer,
+        ]
+        team_participants.extend(mcp_agents)
 
-    team = GroupChat(
-        participants=team_participants,
-        orchestrator_config=orchestrator_config,
-        model_client=model_client_orch,
-        memory_provider=memory_provider,
+
+        team = GroupChat(
+            participants=team_participants,
+            orchestrator_config=magentic_ui_config.orchestrator,
+            model_client=get_chat_completion_client(
+                magentic_ui_config.model_client_configs.orchestrator
+            ),
+            memory_provider=memory_provider,
+            runtime=runtime,
+            termination_condition=termination_condition,
+        )
+
+    logger.info(
+        f"Running Magentic-UI team with {len(team.participants)} participants: [{', '.join(a.name for a in team.participants)}]"
     )
 
     await team.lazy_init()
+
     return team

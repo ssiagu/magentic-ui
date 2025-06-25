@@ -307,7 +307,8 @@ async def get_team(
 
         # Use PrettyConsole or the regular console based on the use_pretty_ui parameter
         if use_pretty_ui:
-            await PrettyConsole(stream, debug=debug)
+            async for _ in PrettyConsole(stream, debug=debug):
+                pass
         else:
             # Console doesn't accept debug parameter, using default Console
             log_debug(
