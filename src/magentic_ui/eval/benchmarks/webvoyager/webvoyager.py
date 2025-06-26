@@ -84,7 +84,7 @@ class WebVoyagerBenchmark(Benchmark):
         eval_method: str = "exact_match",
         model_client: ChatCompletionClient | None = None,
         dynamic_memory_type: DynamicMemoryType = DynamicMemoryType.NONE,
-        dynamic_memory_file: Union[str, None] = None,
+        dynamic_memory_files: Union[List[str], None] = None,
     ):
         assert data_dir is not None, "data_dir must be provided for WebVoyagerBenchmark"
         super().__init__(
@@ -104,28 +104,49 @@ class WebVoyagerBenchmark(Benchmark):
         self.eval_result_class = WebVoyagerEvalResult
         self.tasks: Dict[str, AllTaskTypes] = {}
         self.dynamic_memory_type = dynamic_memory_type
-        if dynamic_memory_type == DynamicMemoryType.AWM:
-            assert (
-                dynamic_memory_file is not None
-            ), "dynamic_memory_file must be provided for DynamicMemoryType.AWM"
-            self.dynamic_memory_file = dynamic_memory_file
-            with open(self.dynamic_memory_file, "r") as f:
-                self.dynamic_memory_content = f.read()
+
+        if dynamic_memory_type != DynamicMemoryType.NONE:
+            if dynamic_memory_type == DynamicMemoryType.AWM:
+                assert (
+                    dynamic_memory_files is not None
+                ), "dynamic_memory_file or dynamic_memory_files must be provided for DynamicMemoryType.AWM"
                 start_phrase = (
                     "Here are some workflows that may help you with your task:"
                 )
-                self.dynamic_memory_content = (
-                    start_phrase + "\n" + self.dynamic_memory_content
+                end_phrase = "If you use a workflow, you must indicate which workflow you used. You must output [WORKFLOW #] where # is the index of the workflow you used."
+            elif dynamic_memory_type == DynamicMemoryType.INSIGHTS:
+                assert (
+                    dynamic_memory_files is not None
+                ), "dynamic_memory_file must be provided for DynamicMemoryType.INSIGHTS"
+                start_phrase = (
+                    "Here are some insights that may help you with your task:"
                 )
-        elif dynamic_memory_type == DynamicMemoryType.INSIGHTS:
-            assert (
-                dynamic_memory_file is not None
-            ), "dynamic_memory_file must be provided for DynamicMemoryType.INSIGHTS"
-            self.dynamic_memory_file = dynamic_memory_file
-            with open(self.dynamic_memory_file, "r") as f:
-                self.dynamic_memory_content = f.read()
-        else:
-            print(f"No dynamic memory file provided for {dynamic_memory_type}")
+                end_phrase = "If you use an insight, you must indicate which insight you used. You must output [INSIGHT #] where # is the index of the insight you used."
+            else:
+                raise ValueError(f"Unknown dynamic memory type: {dynamic_memory_type}")
+            if len(dynamic_memory_files) == 1:
+                with open(dynamic_memory_files[0], "r") as f:
+                    self.dynamic_memory_content = f.read()  # type: ignore
+                    self.dynamic_memory_content = (
+                        start_phrase
+                        + "\n"
+                        + self.dynamic_memory_content
+                        + "\n"
+                        + end_phrase
+                    )
+            else:
+                self.dynamic_memory_content = {}  # type: ignore
+                for file in dynamic_memory_files:
+                    site = file.split("/")[-1].split("___")[0]
+                    with open(file, "r") as f:
+                        site_dynamic_memory_content = f.read()
+                        self.dynamic_memory_content[site] = (  # type: ignore
+                            start_phrase
+                            + "\n"
+                            + site_dynamic_memory_content
+                            + "\n"
+                            + end_phrase
+                        )
 
     def download_dataset(self) -> None:
         """
@@ -206,9 +227,19 @@ class WebVoyagerBenchmark(Benchmark):
                 or self.dynamic_memory_type == DynamicMemoryType.INSIGHTS
             ):
                 question = DYNAMIC_MEMORY_PROMPT.replace("<question>", question)
-                question = question.replace(
-                    "<dynamic_memory_content>", self.dynamic_memory_content
-                )
+                # Check if self.dynamic_memory_content is a dictionary
+                if isinstance(self.dynamic_memory_content, dict):  # type: ignore
+                    if web_name in self.dynamic_memory_content:  # type: ignore
+                        question = question.replace(
+                            "<dynamic_memory_content>",
+                            self.dynamic_memory_content[web_name],  # type: ignore
+                        )
+                    else:
+                        question = question.replace("<dynamic_memory_content>", "")
+                else:
+                    question = question.replace(
+                        "<dynamic_memory_content>", self.dynamic_memory_content
+                    )
 
             task = WebVoyagerTask(
                 id=item["id"],
@@ -233,9 +264,18 @@ class WebVoyagerBenchmark(Benchmark):
                 or self.dynamic_memory_type == DynamicMemoryType.INSIGHTS
             ):
                 question = DYNAMIC_MEMORY_PROMPT.replace("<question>", question)
-                question = question.replace(
-                    "<dynamic_memory_content>", self.dynamic_memory_content
-                )
+                if isinstance(self.dynamic_memory_content, dict):  # type: ignore
+                    if web_name in self.dynamic_memory_content:  # type: ignore
+                        question = question.replace(
+                            "<dynamic_memory_content>",
+                            self.dynamic_memory_content[web_name],  # type: ignore
+                        )
+                    else:
+                        question = question.replace("<dynamic_memory_content>", "")
+                else:
+                    question = question.replace(
+                        "<dynamic_memory_content>", self.dynamic_memory_content
+                    )
 
             task = WebVoyagerTask(
                 id=item.get("id", ""),

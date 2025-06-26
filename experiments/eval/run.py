@@ -1,4 +1,5 @@
 import json
+from typing import List
 import yaml
 import argparse
 import os
@@ -113,12 +114,19 @@ def run_system_evaluation(
     if args.dataset == "WebVoyager":
 
         def create_benchmark(data_dir: str = "WebVoyager", name: str = "WebVoyager"):
+            if args.dynamic_memory_dir is not None:
+                dynamic_memory_files: List[str] | None = [
+                    os.path.join(args.dynamic_memory_dir, f)
+                    for f in os.listdir(args.dynamic_memory_dir)
+                ]  # type: ignore
+            else:
+                dynamic_memory_files = None
             benchmark = WebVoyagerBenchmark(
                 data_dir=data_dir,
                 eval_method="gpt_eval",
                 model_client=client,
                 dynamic_memory_type=DynamicMemoryType(args.dynamic_memory_type),
-                dynamic_memory_file=args.dynamic_memory_file,
+                dynamic_memory_files=dynamic_memory_files,
             )
             return benchmark
 
@@ -283,6 +291,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--dynamic-memory-file", required=False, help="Dynamic memory file"
+    )
+    parser.add_argument(
+        "--dynamic-memory-dir", required=False, help="Dynamic memory directory"
     )
     parser.add_argument("--dataset", default="Gaia", help="Dataset name")
     parser.add_argument(

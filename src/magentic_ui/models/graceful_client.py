@@ -165,7 +165,7 @@ class GracefulRetryClient(ChatCompletionClient):
                     tries -= 1
                     time.sleep(1)
                     continue
-            except Exception as e:
+            except Exception:
                 tries -= 1
                 self.blocklist.add(client)
                 sleep_time = 2  # ** (self.max_retries - tries) # Retry faster
