@@ -181,6 +181,7 @@ def run_system_evaluation(
             system_constructor=system_constructor,
             subsample=args.subsample if args.subsample < 1 else None,
             redo_eval=args.redo_eval,
+            seed=args.seed,
         )
 
 
@@ -347,6 +348,12 @@ def main() -> None:
         type=str,
         default="MagenticUI",
         help="Name of the system to run",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Seed for the experiment",
     )
 
     args = parser.parse_args()
