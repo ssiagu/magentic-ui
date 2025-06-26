@@ -151,24 +151,26 @@ class GracefulRetryClient(ChatCompletionClient):
                     self.blocklist.add(client)
                     time.sleep(1)
                     continue
-                if "Request body too large" in str(e):
+                elif "Request body too large" in str(e):
                     print(
                         f"ERROR: GracefulRetryClient.create() Request body too large: {client.model_info}, {e}"
                     )
                     tries -= 1
                     time.sleep(1)
                     continue
-                raise e
-            except Exception as e:
-                if "please try again" in str(e).lower():
+                else:
+                    print(
+                        f"ERROR: GracefulRetryClient.create() APIStatusError: {client.model_info}, {e}"
+                    )
                     tries -= 1
-                    sleep_time = 2  # ** (self.max_retries - tries) # Retry faster
-                    time.sleep(sleep_time)
+                    time.sleep(1)
                     continue
-                print(
-                    f"Error: GracefulRetryClient.create() {client.model_info} Raising Exception: {e}"
-                )
-                raise e
+            except Exception as e:
+                tries -= 1
+                self.blocklist.add(client)
+                sleep_time = 2  # ** (self.max_retries - tries) # Retry faster
+                time.sleep(sleep_time)
+                continue
         valid_clients = [
             client for client in self._clients if client not in self.blocklist
         ]
