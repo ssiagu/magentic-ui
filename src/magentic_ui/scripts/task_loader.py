@@ -18,6 +18,7 @@ class Task:
     task_id: str
     task_description: str
     task_runs: List[TaskRun]
+    website: str = ""
 
 
 DATASET_MAPPING = {
@@ -73,6 +74,7 @@ def get_task_runs_for_task_id(runs_path: str, task_id: str) -> List[TaskRun]:
 
 def get_tasks_for_system(runs_path: str, dataset: str) -> List[Task]:
     task_description_mapping = create_task_description_mapping(dataset)
+    task_website_mapping = create_task_website_mapping(dataset)
 
     # Get all run directories
     if os.path.exists(runs_path) and os.path.isdir(runs_path):
@@ -113,6 +115,10 @@ def get_tasks_for_system(runs_path: str, dataset: str) -> List[Task]:
 
     print(f"Total unique tasks across all runs: {len(task_ids)}")
 
+    with open("task_ids.txt", "w") as f:
+        for task_id in sorted(task_ids):
+            f.write(f"{task_id}\n")
+
     tasks: List[Task] = []
     for task_id in sorted(task_ids):
         task_runs = get_task_runs_for_task_id(runs_path, task_id)
@@ -124,6 +130,7 @@ def get_tasks_for_system(runs_path: str, dataset: str) -> List[Task]:
                 task_id=task_id,
                 task_description=task_description_mapping.get(task_id, ""),
                 task_runs=task_runs,
+                website=task_website_mapping.get(task_id, "Unknown"),
             )
         )
 
@@ -148,3 +155,20 @@ def create_task_description_mapping(dataset: str) -> Dict[str, str]:
         raise ValueError(f"Unsupported dataset: {dataset}")
 
     return task_description_mapping
+
+
+def create_task_website_mapping(dataset: str) -> Dict[str, str]:
+    task_website_mapping: Dict[str, str] = {}
+    if dataset == "WebVoyager":
+        with open(DATASET_MAPPING[dataset], "r", encoding="utf-8") as f:
+            for line in f:
+                task = json.loads(line)
+                task_website_mapping[task["id"]] = task.get("web_name", "Unknown")
+    elif dataset == "OnlineMind2Web":
+        # For OnlineMind2Web, extract website from task_id or use default
+        # This may need adjustment based on actual data format
+        pass
+    else:
+        raise ValueError(f"Unsupported dataset: {dataset}")
+
+    return task_website_mapping

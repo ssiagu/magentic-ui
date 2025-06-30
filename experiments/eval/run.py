@@ -115,10 +115,12 @@ def run_system_evaluation(
 
         def create_benchmark(data_dir: str = "WebVoyager", name: str = "WebVoyager"):
             if args.dynamic_memory_dir is not None:
+                # f must be a file
                 dynamic_memory_files: List[str] | None = [
                     os.path.join(args.dynamic_memory_dir, f)
                     for f in os.listdir(args.dynamic_memory_dir)
-                ]  # type: ignore
+                    if os.path.isfile(os.path.join(args.dynamic_memory_dir, f))
+                ]
             else:
                 dynamic_memory_files = None
             benchmark = WebVoyagerBenchmark(
@@ -177,6 +179,12 @@ def run_system_evaluation(
             redo_eval=args.redo_eval,
         )
     else:
+        if args.predefined_task_ids_file is not None:
+            with open(args.predefined_task_ids_file, "r") as f:
+                predefined_task_ids = [line.strip() for line in f.readlines()]
+                print(f"Predefined task IDs: {predefined_task_ids}")
+        else:
+            predefined_task_ids = None
         run_evaluate_benchmark_func(
             benchmark_name=args.dataset,
             benchmark_constructor=benchmark_constructor,
@@ -190,6 +198,7 @@ def run_system_evaluation(
             subsample=args.subsample if args.subsample < 1 else None,
             redo_eval=args.redo_eval,
             seed=args.seed,
+            predefined_task_ids=predefined_task_ids,
         )
 
 
@@ -365,6 +374,12 @@ def main() -> None:
         type=int,
         default=None,
         help="Seed for the experiment",
+    )
+    parser.add_argument(
+        "--predefined-task-ids-file",
+        type=str,
+        default=None,
+        help="Path to file containing predefined task IDs to evaluate",
     )
 
     args = parser.parse_args()

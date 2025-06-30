@@ -275,6 +275,7 @@ def run_benchmark_func(
     seed: Optional[int] = 42,
     reload_benchmark_per_task: bool = False,
     reload_system_per_task: bool = False,
+    predefined_task_ids: Optional[List[str]] = None,
 ) -> None:
     """Run benchmark evaluation.
 
@@ -365,6 +366,9 @@ def run_benchmark_func(
     task_ids = (
         benchmark.get_split_tasks(split) if split else list(benchmark.tasks.keys())
     )
+
+    if predefined_task_ids is not None:
+        task_ids = predefined_task_ids
 
     if subsample and 0 < subsample <= 1:
         task_ids = random.sample(task_ids, int(len(task_ids) * subsample))
@@ -686,6 +690,7 @@ def run_evaluate_benchmark_func(
     redo_eval: bool = False,
     reload_benchmark_per_task: bool = False,
     reload_system_per_task: bool = False,
+    predefined_task_ids: Optional[List[str]] = None,
 ) -> None:
     """Run benchmark evaluation and compute metrics.
 
@@ -725,6 +730,7 @@ def run_evaluate_benchmark_func(
             seed=seed,
             reload_benchmark_per_task=reload_benchmark_per_task,
             reload_system_per_task=reload_system_per_task,
+            predefined_task_ids=predefined_task_ids,
         )
     evaluate_benchmark_func(
         benchmark_name=benchmark_name,
