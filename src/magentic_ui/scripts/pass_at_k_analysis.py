@@ -8,7 +8,9 @@ from collections import defaultdict
 from magentic_ui.scripts.task_loader import get_tasks_for_system, Task
 
 
-def get_mean_scores_per_run_by_website(runs_path: str, k: int = 5) -> Dict[str, Dict[int, float]]:
+def get_mean_scores_per_run_by_website(
+    runs_path: str, k: int = 5
+) -> Dict[str, Dict[int, float]]:
     """
     Calculate mean scores for each run grouped by website from individual score.json files.
 
@@ -16,15 +18,15 @@ def get_mean_scores_per_run_by_website(runs_path: str, k: int = 5) -> Dict[str, 
         Dict mapping website to (run_id -> mean_score)
     """
     website_mean_scores = defaultdict(dict)
-    
+
     for run_id in range(1, k + 1):
         run_path = os.path.join(runs_path, str(run_id))
         if not os.path.exists(run_path):
             continue
-            
+
         # Group scores by website for this run
         website_scores = defaultdict(list)
-        
+
         # Walk through all score.json files in this run
         for root, dirs, files in os.walk(run_path):
             if "score.json" in files:
@@ -33,7 +35,7 @@ def get_mean_scores_per_run_by_website(runs_path: str, k: int = 5) -> Dict[str, 
                     with open(score_path, "r") as f:
                         score_data = json.load(f)
                         score = score_data.get("score", 0.0)
-                        
+
                     # Extract website from task ID (e.g., "ArXiv--15" -> "ArXiv")
                     path_parts = root.split(os.sep)
                     # The task ID is the directory containing score.json
@@ -44,12 +46,12 @@ def get_mean_scores_per_run_by_website(runs_path: str, k: int = 5) -> Dict[str, 
                         website_scores[website].append(score)
                 except Exception as e:
                     continue
-        
+
         # Calculate mean score for each website in this run
         for website, scores in website_scores.items():
             if scores:
                 website_mean_scores[website][run_id] = sum(scores) / len(scores)
-    
+
     return dict(website_mean_scores)
 
 
@@ -78,7 +80,9 @@ def get_mean_scores_per_run(runs_path: str, k: int = 5) -> Dict[int, float]:
     return mean_scores
 
 
-def calculate_pass_at_k_by_website(tasks: List[Task], runs_path: str, k: int = 5) -> Dict[str, Tuple[float, Dict[int, int]]]:
+def calculate_pass_at_k_by_website(
+    tasks: List[Task], runs_path: str, k: int = 5
+) -> Dict[str, Tuple[float, Dict[int, int]]]:
     """
     Calculate pass@k metric and distribution of success counts grouped by website.
 
@@ -86,34 +90,32 @@ def calculate_pass_at_k_by_website(tasks: List[Task], runs_path: str, k: int = 5
         Dict mapping website to (pass@k score, distribution dict)
     """
     website_stats = defaultdict(lambda: {"tasks": [], "distribution": defaultdict(int)})
-    
+
     # Group tasks by website and count successes
     for task in tasks:
         website = task.website
         website_stats[website]["tasks"].append(task)
-        
+
         # Count successful runs for this task (score == 1.0)
         successes = sum(1 for run in task.task_runs if run.score == 1.0)
         # Cap at k for pass@k calculation
         successes_capped = min(successes, k)
         website_stats[website]["distribution"][successes] += 1
-    
+
     # Calculate pass@k for each website
     results = {}
     for website, stats in website_stats.items():
         distribution = stats["distribution"]
         total_tasks = len(stats["tasks"])
-        
+
         # Calculate pass@k: tasks with at least 1 success out of k attempts
         tasks_with_success = sum(
-            count
-            for num_successes, count in distribution.items()
-            if num_successes > 0
+            count for num_successes, count in distribution.items() if num_successes > 0
         )
         pass_at_k = (tasks_with_success / total_tasks * 100) if total_tasks > 0 else 0.0
-        
+
         results[website] = (pass_at_k, dict(distribution))
-    
+
     return results
 
 
@@ -221,52 +223,65 @@ def print_analysis(runs_path: str, dataset: str, k: int = 5):
     if mean_scores:
         overall_mean = sum(mean_scores.values()) / len(mean_scores)
         print(f"\nOverall mean score across all runs: {overall_mean:.4f}")
-    
+
     # Print per-website statistics
     print(f"\n{'='*60}")
     print(f"Per-Website Pass@{k} Analysis")
     print(f"{'='*60}")
-    
+
     # Get per-website mean scores from metrics_by_website.json files
     website_mean_scores_by_run = get_mean_scores_per_run_by_website(runs_path, k)
-    
+
     # Sort websites by pass@k score (descending)
-    sorted_websites = sorted(website_results.items(), key=lambda x: x[1][0], reverse=True)
-    
+    sorted_websites = sorted(
+        website_results.items(), key=lambda x: x[1][0], reverse=True
+    )
+
     for website, (website_pass_at_k, website_distribution) in sorted_websites:
         print(f"\n{'='*40}")
         print(f"Website: {website}")
         print(f"{'='*40}")
-        
+
         # Count total tasks for this website
         website_task_count = sum(website_distribution.values())
         print(f"Pass@{k}: {website_pass_at_k:.2f}%")
         print(f"Total tasks: {website_task_count}")
-        
+
         # Print distribution for this website
         print(f"\nSuccess Distribution:")
         for num_successes in range(k + 1):
             count = website_distribution.get(num_successes, 0)
-            percentage = (count / website_task_count * 100) if website_task_count > 0 else 0
+            percentage = (
+                (count / website_task_count * 100) if website_task_count > 0 else 0
+            )
             bar_length = int(percentage / 2)  # Scale to fit in terminal
             bar = "█" * bar_length
-            print(f"{num_successes} successes: {count:4d} tasks ({percentage:6.2f}%) {bar}")
-        
+            print(
+                f"{num_successes} successes: {count:4d} tasks ({percentage:6.2f}%) {bar}"
+            )
+
         # Website-specific statistics
         perfect_tasks = website_distribution.get(k, 0)
         failed_tasks = website_distribution.get(0, 0)
-        
+
         print(f"\nWebsite Statistics:")
         print(f"Perfect score ({k}/{k}): {perfect_tasks}")
         print(f"No success (0/{k}): {failed_tasks}")
-        
+
         # Calculate and display mean score from per-run scores
         # Use the per-website mean scores if available
-        if website in website_mean_scores_by_run and website_mean_scores_by_run[website]:
+        if (
+            website in website_mean_scores_by_run
+            and website_mean_scores_by_run[website]
+        ):
             website_per_run_scores = website_mean_scores_by_run[website]
-            website_mean_score = sum(website_per_run_scores.values()) / len(website_per_run_scores)
-            print(f"Mean score (averaged from per-run scores): {website_mean_score:.4f}")
-            
+            website_mean_score = sum(website_per_run_scores.values()) / len(
+                website_per_run_scores
+            )
+            print(
+                f"Mean score (averaged from per-run scores): {website_mean_score:.4f}"
+            )
+
             # Show per-run scores
             print(f"\nPer-Run Mean Scores:")
             for run_id in sorted(website_per_run_scores.keys()):
@@ -274,7 +289,6 @@ def print_analysis(runs_path: str, dataset: str, k: int = 5):
                 bar_length = int(score * 50)
                 bar = "█" * bar_length
                 print(f"Run {run_id}: {score:.4f} {bar}")
-        
 
 
 def main():

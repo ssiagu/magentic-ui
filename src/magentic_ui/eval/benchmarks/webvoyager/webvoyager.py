@@ -67,6 +67,9 @@ def encode_image(image_path: str) -> str:
         return base64.b64encode(f.read()).decode("utf-8")
 
 
+WEBNAMES = ["ArXiv", "ESPN", "Coursera", "Huggingface", "Github"]
+
+
 class WebVoyagerBenchmark(Benchmark):
     """
     Loads the WebVoyager dataset, stores it locally,
@@ -193,6 +196,32 @@ class WebVoyagerBenchmark(Benchmark):
 
         return split
 
+    def _get_split_for_task_per_site(self, site_name: str, task_id: str) -> str:
+        """
+        Create splits for tasks within each website to ensure roughly 50/50
+        train/test distribution for each site's tasks.
+
+        Args:
+            site_name: The name of the website
+            task_id: The task identifier
+
+        Returns:
+            Split assignment ("train" or "test")
+        """
+        # Hash the task_id to ensure deterministic splits
+        # This ensures that within any site, tasks are distributed roughly 50/50
+        template_hash = hashlib.md5(str(task_id).encode("utf-8")).hexdigest()
+
+        # Use first two hex digits for more granular control
+        hash_value = int(template_hash[:2], 16)  # 0-255
+
+        if hash_value < 128:  # 0-127 (50%)
+            split = "train"
+        else:  # 128-255 (50%)
+            split = "test"
+
+        return split
+
     def load_dataset(self):
         """
         Loads the data from a JSONL file and the references from a JSON file.
@@ -209,6 +238,10 @@ class WebVoyagerBenchmark(Benchmark):
                 numeric_id = None
 
             web_name = item.get("web_name", "")
+
+            # Skip websites not in the WEBNAMES list
+            if web_name not in WEBNAMES:
+                continue
             ref_answer = None
             answer_type = None
 
@@ -220,7 +253,7 @@ class WebVoyagerBenchmark(Benchmark):
                         answer_type = ans_obj.get("type", None)
                         break
 
-            split = self._get_split_for_site(web_name)
+            split = self._get_split_for_task_per_site(web_name, item["id"])
             question = item.get("ques", "")
             if (
                 self.dynamic_memory_type == DynamicMemoryType.AWM

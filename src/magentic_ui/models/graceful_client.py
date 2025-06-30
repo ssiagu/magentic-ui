@@ -113,7 +113,9 @@ class GracefulRetryClient(ChatCompletionClient):
                 print(
                     f"ERROR: GracefulRetryClient.create() RateLimitError: {client.model_info}, {e}"
                 )
-                sleep_time = 2  # ** (self.max_retries - tries) # Retry faster
+                sleep_time = 2 * (
+                    self.max_retries - tries
+                )  # Not exponential to avoid long delays
                 time.sleep(sleep_time)
                 continue
             except openai.NotFoundError as e:
@@ -168,7 +170,9 @@ class GracefulRetryClient(ChatCompletionClient):
             except Exception:
                 tries -= 1
                 self.blocklist.add(client)
-                sleep_time = 2  # ** (self.max_retries - tries) # Retry faster
+                sleep_time = 2 * (
+                    self.max_retries - tries
+                )  # Not exponential to avoid long delays
                 time.sleep(sleep_time)
                 continue
         valid_clients = [
