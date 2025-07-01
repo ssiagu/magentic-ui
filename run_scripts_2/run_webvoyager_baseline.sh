@@ -5,7 +5,11 @@ start_time=$(date +%s)
 echo "Starting run at $(date)"
 
 # Run the task
-python experiments/eval/run.py --current-dir . --dataset WebVoyager --split webvoyager/train --simulated-user-type none --parallel 500 --config experiments/endpoint_configs/multi_config.yaml --web-surfer-only true --use-local-browser true --mode run --dynamic-memory-type none --system-name baseline --run-id 1
+python experiments/eval/run.py --current-dir . --dataset WebVoyager --split webvoyager/train --simulated-user-type none --parallel 500 --config experiments/endpoint_configs/multi_config.yaml --web-surfer-only true --use-local-browser true --mode run --dynamic-memory-type none --system-name baseline --run-id 1&
+python experiments/eval/run.py --current-dir . --dataset WebVoyager --split webvoyager/train --simulated-user-type none --parallel 500 --config experiments/endpoint_configs/multi_config.yaml --web-surfer-only true --use-local-browser true --mode run --dynamic-memory-type none --system-name baseline --run-id 2&
+python experiments/eval/run.py --current-dir . --dataset WebVoyager --split webvoyager/train --simulated-user-type none --parallel 500 --config experiments/endpoint_configs/multi_config.yaml --web-surfer-only true --use-local-browser true --mode run --dynamic-memory-type none --system-name baseline --run-id 3&
+python experiments/eval/run.py --current-dir . --dataset WebVoyager --split webvoyager/train --simulated-user-type none --parallel 500 --config experiments/endpoint_configs/multi_config.yaml --web-surfer-only true --use-local-browser true --mode run --dynamic-memory-type none --system-name baseline --run-id 4&
+python experiments/eval/run.py --current-dir . --dataset WebVoyager --split webvoyager/train --simulated-user-type none --parallel 500 --config experiments/endpoint_configs/multi_config.yaml --web-surfer-only true --use-local-browser true --mode run --dynamic-memory-type none --system-name baseline --run-id 5&
 
 # Calculate time
 end_time=$(date +%s)
