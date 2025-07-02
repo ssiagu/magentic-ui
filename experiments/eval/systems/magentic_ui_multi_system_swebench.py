@@ -112,6 +112,14 @@ class MagenticUIMultiAutonomousSystemSWEBench(BaseSystem):
             messages_so_far: List[LogEventSystem] = []
 
             task_question: str = task.question
+            if (
+                "[TASK]" in task_question
+                and "[MEMORY]" in task_question
+            ):
+                # split all_msg_contents based on [TASK] and [MEMORY] delimiters
+                task_question = task_question.split("[TASK]")[1].split(
+                    "[MEMORY]"
+                )[0]
             # Adapted from MagenticOne. Minor change is to allow an explanation of the final answer before the final answer.
             FINAL_ANSWER_PROMPT = f"""
             output a FINAL ANSWER to the task.

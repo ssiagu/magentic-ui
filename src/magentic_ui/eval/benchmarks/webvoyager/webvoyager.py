@@ -67,7 +67,7 @@ def encode_image(image_path: str) -> str:
         return base64.b64encode(f.read()).decode("utf-8")
 
 
-WEBNAMES = ["ArXiv", "ESPN", "Coursera", "Huggingface", "GitHub", "Cambridge Dictionary", "Allrecipes"]
+WEBNAMES = ["ArXiv", "ESPN", "Coursera", "Huggingface"]# , "GitHub", "Cambridge Dictionary", "Allrecipes", "Amazon", "Apple", "Google Search", "Wolfram Alpha"]
 
 
 class WebVoyagerBenchmark(Benchmark):
