@@ -1,5 +1,12 @@
 from typing import Dict, Any, List, Optional, Union
 from pydantic import BaseModel, Field
+from enum import Enum
+
+
+class DynamicMemoryType(str, Enum):
+    NONE = "none"
+    AWM = "awm"
+    INSIGHTS = "insights"
 
 
 class BaseTask(BaseModel):

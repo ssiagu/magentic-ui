@@ -18,6 +18,7 @@ from ...models import (
     AllTaskTypes,
     AllCandidateTypes,
     AllEvalResultTypes,
+    DynamicMemoryType,
 )
 
 SYSTEM_PROMPT = """As an evaluator, you will be presented with three primary components to assist you in your role:
@@ -51,12 +52,6 @@ class WebVoyagerSplit(str, Enum):
     TRAIN = "train"
     VALIDATION = "validation"
     TEST = "test"
-
-
-class DynamicMemoryType(str, Enum):
-    NONE = "none"
-    AWM = "awm"
-    INSIGHTS = "insights"
 
 
 def encode_image(image_path: str) -> str:

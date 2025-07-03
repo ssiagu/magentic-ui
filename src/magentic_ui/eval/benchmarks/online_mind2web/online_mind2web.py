@@ -18,8 +18,8 @@ from ...models import (
     AllTaskTypes,
     AllCandidateTypes,
     AllEvalResultTypes,
+    DynamicMemoryType,
 )
-from ..webvoyager.webvoyager import DynamicMemoryType
 
 SYSTEM_PROMPT = """As an evaluator, you will be presented with three primary components to assist you in your role:
 
@@ -76,7 +76,7 @@ class OnlineMind2WebBenchmark(Benchmark):
         eval_method: str = "gpt_eval",
         model_client: ChatCompletionClient | None = None,
         dynamic_memory_type: DynamicMemoryType = DynamicMemoryType.NONE,
-        dynamic_memory_file: Union[str, None] = None,
+        dynamic_memory_files: Union[List[str], None] = None,
     ):
         assert (
             data_dir is not None
@@ -96,28 +96,50 @@ class OnlineMind2WebBenchmark(Benchmark):
         self.eval_result_class = OnlineMind2WebEvalResult
         self.tasks: Dict[str, AllTaskTypes] = {}
         self.dynamic_memory_type = dynamic_memory_type
-        if dynamic_memory_type == DynamicMemoryType.AWM:
-            assert (
-                dynamic_memory_file is not None
-            ), "dynamic_memory_file must be provided for DynamicMemoryType.AWM"
-            self.dynamic_memory_file = dynamic_memory_file
-            with open(self.dynamic_memory_file, "r") as f:
-                self.dynamic_memory_content = f.read()
+
+        if dynamic_memory_type != DynamicMemoryType.NONE:
+            if dynamic_memory_type == DynamicMemoryType.AWM:
+                assert (
+                    dynamic_memory_files is not None
+                ), "dynamic_memory_files must be provided for DynamicMemoryType.AWM"
                 start_phrase = (
                     "Here are some workflows that may help you with your task:"
                 )
-                self.dynamic_memory_content = (
-                    start_phrase + "\n" + self.dynamic_memory_content
+                end_phrase = "If you use a workflow, you must indicate which workflow you used. You must output [WORKFLOW #] where # is the index of the workflow you used. If you do not use a workflow, you must output [WORKFLOW NONE]."
+            elif dynamic_memory_type == DynamicMemoryType.INSIGHTS:
+                assert (
+                    dynamic_memory_files is not None
+                ), "dynamic_memory_files must be provided for DynamicMemoryType.INSIGHTS"
+                start_phrase = (
+                    "Here are some insights that may help you with your task:"
                 )
-        elif dynamic_memory_type == DynamicMemoryType.INSIGHTS:
-            assert (
-                dynamic_memory_file is not None
-            ), "dynamic_memory_file must be provided for DynamicMemoryType.INSIGHTS"
-            self.dynamic_memory_file = dynamic_memory_file
-            with open(self.dynamic_memory_file, "r") as f:
-                self.dynamic_memory_content = f.read()
-        else:
-            print(f"No dynamic memory file provided for {dynamic_memory_type}")
+                end_phrase = "If you use an insight, you must indicate which insight you used. You must output [INSIGHT #] where # is the index of the insight you used. If you do not use an insight, you must output [INSIGHT NONE]."
+            else:
+                raise ValueError(f"Unknown dynamic memory type: {dynamic_memory_type}")
+
+            if len(dynamic_memory_files) == 1:
+                with open(dynamic_memory_files[0], "r") as f:
+                    self.dynamic_memory_content = f.read()  # type: ignore
+                    self.dynamic_memory_content = (
+                        start_phrase
+                        + "\n"
+                        + self.dynamic_memory_content
+                        + "\n"
+                        + end_phrase
+                    )
+            else:
+                self.dynamic_memory_content = {}  # type: ignore
+                for file in dynamic_memory_files:
+                    site = file.split("/")[-1].split("___")[0]
+                    with open(file, "r") as f:
+                        site_dynamic_memory_content = f.read()
+                        self.dynamic_memory_content[site] = (  # type: ignore
+                            start_phrase
+                            + "\n"
+                            + site_dynamic_memory_content
+                            + "\n"
+                            + end_phrase
+                        )
 
     def download_dataset(self) -> None:
         """
@@ -152,6 +174,49 @@ class OnlineMind2WebBenchmark(Benchmark):
 
         return split
 
+    def _get_split_for_task(self, task_id: str) -> str:
+        """
+        Create splits for the dataset.
+        """
+        ### create splits for tasks
+        template_hash = hashlib.md5(str(task_id).encode("utf-8")).hexdigest()
+
+        # Use first two hex digits for more granular control
+        hash_value = int(template_hash[:2], 16)  # 0-255
+
+        if hash_value < 128:  # 0-127 (50%)
+            split = "train"
+        else:  # 128-255 (50%)
+            split = "test"
+
+        return split
+
+    def _get_split_for_task_per_site(self, site_name: str, task_id: str) -> str:
+        """
+        Create splits for tasks within each website to ensure roughly 50/50
+        train/test distribution for each site's tasks.
+
+        Args:
+            site_name: The name of the website
+            task_id: The task identifier
+
+        Returns:
+            Split assignment ("train" or "test")
+        """
+        # Hash the task_id to ensure deterministic splits
+        # This ensures that within any site, tasks are distributed roughly 50/50
+        template_hash = hashlib.md5(str(task_id).encode("utf-8")).hexdigest()
+
+        # Use first two hex digits for more granular control
+        hash_value = int(template_hash[:2], 16)  # 0-255
+
+        if hash_value < 128:  # 0-127 (50%)
+            split = "train"
+        else:  # 128-255 (50%)
+            split = "test"
+
+        return split
+
     def load_dataset(self):
         """
         Loads the data from a JSON file.
@@ -167,15 +232,25 @@ class OnlineMind2WebBenchmark(Benchmark):
             level: str = item["level"]
             reference_length: int = item["reference_length"]
 
-            split = self._get_split_for_site(web_name)
+            split = self._get_split_for_task_per_site(web_name, task_id)
             if (
                 self.dynamic_memory_type == DynamicMemoryType.AWM
                 or self.dynamic_memory_type == DynamicMemoryType.INSIGHTS
             ):
                 question = DYNAMIC_MEMORY_PROMPT.replace("<question>", question)
-                question = question.replace(
-                    "<dynamic_memory_content>", self.dynamic_memory_content
-                )
+                # Check if self.dynamic_memory_content is a dictionary
+                if isinstance(self.dynamic_memory_content, dict):  # type: ignore
+                    if web_name in self.dynamic_memory_content:  # type: ignore
+                        question = question.replace(
+                            "<dynamic_memory_content>",
+                            self.dynamic_memory_content[web_name],  # type: ignore
+                        )
+                    else:
+                        question = question.replace("<dynamic_memory_content>", "")
+                else:
+                    question = question.replace(
+                        "<dynamic_memory_content>", self.dynamic_memory_content
+                    )
 
             task = OnlineMind2WebTask(
                 id=task_id,
