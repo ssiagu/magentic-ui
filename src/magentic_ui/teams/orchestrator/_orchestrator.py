@@ -232,15 +232,26 @@ class Orchestrator(BaseGroupChatManager):
         self,
     ) -> str:
         date_today = datetime.now().strftime("%Y-%m-%d")
+        dynamic_memory_instruction = ""
+        if self._state.dynamic_memory != "":
+            dynamic_memory_instruction = (
+                "Here are workflows that may be helpful to complete the task: "
+                + self._state.dynamic_memory
+                + "When planning, you must first consider if there is a workflow that may be helpful to complete the task."
+                + "It is very important to clarify in your plan if you are using a workflow or not using a workflow by outputting [WORKFLOW #] where # is the index of the workflow you used or [WORKFLOW NONE] if you are not using a workflow."
+                + "This must be an written out part of your plan."
+            )
         if self._config.autonomous_execution:
             return ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING_AUTONOMOUS.format(
                 date_today=date_today,
                 team=self._team_description,
+                dynamic_memory_instruction=dynamic_memory_instruction,
             )
         else:
             return ORCHESTRATOR_SYSTEM_MESSAGE_PLANNING.format(
                 date_today=date_today,
                 team=self._team_description,
+                dynamic_memory_instruction=dynamic_memory_instruction,
             )
 
     def _get_task_ledger_plan_prompt(self, team: str) -> str:
@@ -251,9 +262,23 @@ class Orchestrator(BaseGroupChatManager):
                 + ", ".join(self._config.allowed_websites)
             )
 
-        return ORCHESTRATOR_PLAN_PROMPT_JSON.format(
-            team=team, additional_instructions=additional_instructions
+        dynamic_memory_instruction = ""
+        if self._state.dynamic_memory != "":
+            dynamic_memory_instruction = (
+                "Here are workflows that may be helpful to complete the task: "
+                + self._state.dynamic_memory
+                + "When planning, you must first consider if there is a workflow that may be helpful to complete the task."
+                + "It is very important to clarify in your plan if you are using a workflow or not using a workflow by outputting [WORKFLOW #] where # is the index of the workflow you used or [WORKFLOW NONE] if you are not using a workflow."
+                + "This must be an written out part of your plan."
+            )
+
+        orchestrator_plan_prompt = ORCHESTRATOR_PLAN_PROMPT_JSON.format(
+            team=team,
+            additional_instructions=additional_instructions,
+            dynamic_memory_instruction=dynamic_memory_instruction,
         )
+        print("orchestrator_plan_prompt", orchestrator_plan_prompt)
+        return orchestrator_plan_prompt
 
     def _get_task_ledger_replan_plan_prompt(
         self, task: str, team: str, plan: str, dynamic_memory: str
@@ -264,12 +289,22 @@ class Orchestrator(BaseGroupChatManager):
                 "Only use the following websites if possible: "
                 + ", ".join(self._config.allowed_websites)
             )
+
+        dynamic_memory_instruction = ""
+        if dynamic_memory != "":
+            dynamic_memory_instruction = (
+                "Here are workflows that may be helpful to complete the task: "
+                + dynamic_memory
+                + "When planning, you must first consider if there is a workflow that may be helpful to complete the task."
+                + "It is very important to clarify in your plan if you are using a workflow or not using a workflow by outputting [WORKFLOW #] where # is the index of the workflow you used or [WORKFLOW NONE] if you are not using a workflow."
+                + "This must be an written out part of your plan."
+            )
         return ORCHESTRATOR_PLAN_REPLAN_JSON.format(
             task=task,
             team=team,
             plan=plan,
-            dynamic_memory=dynamic_memory,
             additional_instructions=additional_instructions,
+            dynamic_memory_instruction=dynamic_memory_instruction,
         )
 
     def _get_task_ledger_full_prompt(

@@ -67,7 +67,12 @@ def encode_image(image_path: str) -> str:
         return base64.b64encode(f.read()).decode("utf-8")
 
 
-WEBNAMES = ["ArXiv", "ESPN", "Coursera", "Huggingface"]# , "GitHub", "Cambridge Dictionary", "Allrecipes", "Amazon", "Apple", "Google Search", "Wolfram Alpha"]
+WEBNAMES = [
+    "ArXiv",
+    "ESPN",
+    "Coursera",
+    "Huggingface",
+]  # , "GitHub", "Cambridge Dictionary", "Allrecipes", "Amazon", "Apple", "Google Search", "Wolfram Alpha"]
 
 
 class WebVoyagerBenchmark(Benchmark):
@@ -116,7 +121,7 @@ class WebVoyagerBenchmark(Benchmark):
                 start_phrase = (
                     "Here are some workflows that may help you with your task:"
                 )
-                end_phrase = "If you use a workflow, you must indicate which workflow you used. You must output [WORKFLOW #] where # is the index of the workflow you used."
+                end_phrase = "If you use a workflow, you must indicate which workflow you used. You must output [WORKFLOW #] where # is the index of the workflow you used. If you do not use a workflow, you must output [WORKFLOW NONE]."
             elif dynamic_memory_type == DynamicMemoryType.INSIGHTS:
                 assert (
                     dynamic_memory_files is not None
@@ -124,7 +129,7 @@ class WebVoyagerBenchmark(Benchmark):
                 start_phrase = (
                     "Here are some insights that may help you with your task:"
                 )
-                end_phrase = "If you use an insight, you must indicate which insight you used. You must output [INSIGHT #] where # is the index of the insight you used."
+                end_phrase = "If you use an insight, you must indicate which insight you used. You must output [INSIGHT #] where # is the index of the insight you used. If you do not use an insight, you must output [INSIGHT NONE]."
             else:
                 raise ValueError(f"Unknown dynamic memory type: {dynamic_memory_type}")
             if len(dynamic_memory_files) == 1:

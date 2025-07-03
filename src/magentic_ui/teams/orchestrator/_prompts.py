@@ -39,9 +39,15 @@ The title should be a short one sentence description of the step.
 The details should be a detailed description of the step. The details should be concise and directly describe the action to be taken.
 The details should start with a brief recap of the title. We then follow it with a new line. We then add any additional details without repeating information from the title. We should be concise but mention all crucial details to allow the human to verify the step.
 
+
+{dynamic_memory_instruction}
+
+
 Example 1:
 
 User request: "Report back the menus of three restaurants near the zipcode 98052"
+
+I will use [WORKFLOW 2] to complete the task.
 
 Step 1:
 - title: "Locate the menu of the first restaurant"
@@ -64,6 +70,8 @@ Example 2:
 
 User request: "Execute the starter code for the autogen repo"
 
+I will use [WORKFLOW 5] to complete the task.
+
 Step 1:
 - title: "Locate the starter code for the autogen repo"
 - details: "Locate the starter code for the autogen repo. \n Search for the official AutoGen repository on GitHub, navigate to their examples or getting started section, and identify the recommended starter code for new users."
@@ -78,6 +86,8 @@ Step 2:
 Example 3:
 
 User request: "On which social media platform does Autogen have the most followers?"
+
+There is not a relevant workflow for this task. [WORKFLOW NONE].
 
 Step 1:
 - title: "Find all social media platforms that Autogen is on"
@@ -97,6 +107,8 @@ Step 3:
 
 
 Example 4:
+
+There is not a relevant workflow for this task. [WORKFLOW NONE].
 
 User request: "Can you paraphrase the following sentence: 'The quick brown fox jumps over the lazy dog'"
 
@@ -142,7 +154,12 @@ The details should be a detailed description of the step. The details should be 
 The details should start with a brief recap of the title. We then follow it with a new line. We then add any additional details without repeating information from the title. We should be concise but mention all crucial details to allow the human to verify the step.
 
 
+{dynamic_memory_instruction}
+
+
 Example 1:
+
+I will use [WORKFLOW 2] to complete the task.
 
 User request: "Report back the menus of three restaurants near the zipcode 98052"
 
@@ -167,6 +184,8 @@ Example 2:
 
 User request: "Execute the starter code for the autogen repo"
 
+I will use [WORKFLOW 5] to complete the task.
+
 Step 1:
 - title: "Locate the starter code for the autogen repo"
 - details: "Locate the starter code for the autogen repo. \n Search for the official AutoGen repository on GitHub, navigate to their examples or getting started section, and identify the recommended starter code for new users."
@@ -182,6 +201,8 @@ Step 2:
 Example 3:
 
 User request: "On which social media platform does Autogen have the most followers?"
+
+There is not a relevant workflow for this task. [WORKFLOW NONE].
 
 Step 1:
 - title: "Find all social media platforms that Autogen is on"
@@ -216,10 +237,7 @@ You have access to the following team members that can help you address the requ
 
 Remember, there is no requirement to involve all team members -- a team member's particular expertise may not be needed for this task.
 
-
 {additional_instructions}
-
-
 
 Your plan should should be a sequence of steps that will complete the task.
 
@@ -230,6 +248,9 @@ The title should be a short one sentence description of the step.
 The details should be a detailed description of the step. The details should be concise and directly describe the action to be taken.
 The details should start with a brief recap of the title in one short sentence. We then follow it with a new line. We then add any additional details without repeating information from the title. We should be concise but mention all crucial details to allow the human to verify the step.
 The details should not be longer that 2 sentences.
+
+
+{dynamic_memory_instruction}
 
 
 Output an answer in pure JSON format according to the following schema. The JSON object must be parsable as-is. DO NOT OUTPUT ANYTHING OTHER THAN JSON, AND DO NOT DEVIATE FROM THIS SCHEMA:
@@ -267,10 +288,6 @@ ORCHESTRATOR_PLAN_REPLAN_JSON = (
 The task we are trying to complete is:
 
 {task}
-
-Here are the previous learnings from similar tasks:
-
-{dynamic_memory}
 
 The plan we have tried to complete is:
 
