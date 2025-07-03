@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-import os
 import json
 import re
 import argparse
 from collections import defaultdict
-from typing import Dict, List, Set
+from typing import List
 from magentic_ui.scripts.task_loader import get_tasks_for_system
 
 
@@ -16,7 +15,7 @@ def extract_workflows_from_trajectory(trajectory: str) -> List[int]:
     try:
         messages = json.loads(trajectory)
     except json.JSONDecodeError:
-        print(f"Error parsing trajectory JSON")
+        print("Error parsing trajectory JSON")
         return workflows
 
     # Process each message
@@ -142,7 +141,7 @@ def main():
             print(
                 f"  Average score: {sum(workflow_scores[workflow_num]) / len(workflow_scores[workflow_num]):.2f}"
             )
-            print(f"  Tasks using this workflow:")
+            print("  Tasks using this workflow:")
 
             for task_id in sorted(task_workflow_map[workflow_num]):
                 task_scores = task_workflow_score_map[workflow_num][task_id]

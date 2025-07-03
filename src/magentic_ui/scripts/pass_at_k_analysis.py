@@ -3,9 +3,56 @@ import os
 import sys
 import json
 import argparse
+import math
 from typing import Dict, List, Tuple
 from collections import defaultdict
 from magentic_ui.scripts.task_loader import get_tasks_for_system, Task
+
+
+def calculate_mean_and_confidence_interval(scores: List[float]) -> Tuple[float, float]:
+    """
+    Calculate mean and 95% confidence interval using t-distribution.
+
+    Args:
+        scores: List of scores
+
+    Returns:
+        Tuple of (mean, confidence_interval)
+    """
+    if not scores:
+        return 0.0, 0.0
+
+    n = len(scores)
+    mean = sum(scores) / n
+
+    if n == 1:
+        return mean, 0.0
+
+    # Calculate standard deviation
+    variance = sum((x - mean) ** 2 for x in scores) / (n - 1)
+    std_dev = math.sqrt(variance)
+
+    # t-values for 95% confidence interval
+    # For small samples, use exact t-values
+    t_values = {
+        2: 12.706,
+        3: 4.303,
+        4: 3.182,
+        5: 2.776,
+        6: 2.571,
+        7: 2.447,
+        8: 2.365,
+        9: 2.306,
+        10: 2.262,
+    }
+
+    # For larger samples, approximate with 1.96
+    t_value = t_values.get(n, 1.96)
+
+    # Calculate confidence interval
+    confidence_interval = t_value * std_dev / math.sqrt(n)
+
+    return mean, confidence_interval
 
 
 def get_mean_scores_per_run_by_website(
@@ -44,7 +91,7 @@ def get_mean_scores_per_run_by_website(
                     if "--" in task_id:
                         website = task_id.split("--")[0]
                         website_scores[website].append(score)
-                except Exception as e:
+                except Exception:
                     continue
 
         # Calculate mean score for each website in this run
@@ -248,7 +295,7 @@ def print_analysis(runs_path: str, dataset: str, k: int = 5):
         print(f"Total tasks: {website_task_count}")
 
         # Print distribution for this website
-        print(f"\nSuccess Distribution:")
+        print("\nSuccess Distribution:")
         for num_successes in range(k + 1):
             count = website_distribution.get(num_successes, 0)
             percentage = (
@@ -264,7 +311,7 @@ def print_analysis(runs_path: str, dataset: str, k: int = 5):
         perfect_tasks = website_distribution.get(k, 0)
         failed_tasks = website_distribution.get(0, 0)
 
-        print(f"\nWebsite Statistics:")
+        print("\nWebsite Statistics:")
         print(f"Perfect score ({k}/{k}): {perfect_tasks}")
         print(f"No success (0/{k}): {failed_tasks}")
 
@@ -283,12 +330,52 @@ def print_analysis(runs_path: str, dataset: str, k: int = 5):
             )
 
             # Show per-run scores
-            print(f"\nPer-Run Mean Scores:")
+            print("\nPer-Run Mean Scores:")
             for run_id in sorted(website_per_run_scores.keys()):
                 score = website_per_run_scores[run_id]
                 bar_length = int(score * 50)
                 bar = "█" * bar_length
                 print(f"Run {run_id}: {score:.4f} {bar}")
+
+
+def get_analysis_data(runs_path: str, dataset: str, k: int = 5) -> Dict:
+    """
+    Get pass@k analysis data in a structured format.
+
+    Returns:
+        Dictionary containing:
+        - overall_pass_at_k: float
+        - per_run_scores: Dict[int, float] mapping run_id to score
+        - per_website_data: Dict[str, Dict] with website-specific data
+    """
+    # Load tasks
+    tasks = get_tasks_for_system(runs_path, dataset)
+
+    if not tasks:
+        return {"overall_pass_at_k": 0.0, "per_run_scores": {}, "per_website_data": {}}
+
+    # Calculate metrics
+    pass_at_k, distribution = calculate_pass_at_k(tasks, k)
+    website_results = calculate_pass_at_k_by_website(tasks, runs_path, k)
+    mean_scores = get_mean_scores_per_run(runs_path, k)
+    website_mean_scores_by_run = get_mean_scores_per_run_by_website(runs_path, k)
+
+    # Structure the data
+    result = {
+        "overall_pass_at_k": pass_at_k,
+        "per_run_scores": mean_scores,
+        "per_website_data": {},
+    }
+
+    # Add per-website data
+    for website, (website_pass_at_k, website_distribution) in website_results.items():
+        website_data = {
+            "pass_at_k": website_pass_at_k,
+            "per_run_scores": website_mean_scores_by_run.get(website, {}),
+        }
+        result["per_website_data"][website] = website_data
+
+    return result
 
 
 def main():
