@@ -1,9 +1,7 @@
 #!/bin/bash
 
-# In this experiment, I used AWM Multi as base then I modified the tuning prompts. I manually ran the tuning script (but that should be no different than running the script). 
-# Effectively the same as epoch 1 of an experiment.
-
-# This is effectively the same as "multi"
+# Experiment 2: means that i am adding the dynamic memory into the planning and replanning step itself and forcing the model to try to use workflows.
+# This uses AWM generated from multiple runs.
 
 # Parse command line arguments
 SEQUENTIAL_MODE=false
@@ -46,8 +44,8 @@ run_task() {
         --use-local-browser true \
         --mode run \
         --dynamic-memory-type awm \
-        --dynamic-memory-dir /home/t-waynechi/dev/magentic-ui/runs/baseline_web_surfer_only/WebVoyager/webvoyager/train/workflows_awm_bs_all_meta_epoch_1_exp_1 \
-        --system-name tune_awm_bs_all_meta_epoch_1_exp_1 \
+        --dynamic-memory-dir /home/t-waynechi/dev/magentic-ui/runs/baseline_web_surfer_only/WebVoyager/webvoyager/train/workflows_awm_exp_2 \
+        --system-name awm_exp_2 \
         --run-id $run_id \
         --predefined-task-ids-file /home/t-waynechi/dev/magentic-ui/task_ids_train_1.txt
         # --redo-eval

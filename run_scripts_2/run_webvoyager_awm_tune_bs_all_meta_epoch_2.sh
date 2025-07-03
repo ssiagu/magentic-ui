@@ -40,14 +40,14 @@ run_task() {
         --dataset WebVoyager \
         --split webvoyager/train \
         --simulated-user-type none \
-        --parallel 20 \
+        --parallel 100 \
         --config experiments/endpoint_configs/multi_config.yaml \
         --web-surfer-only true \
         --use-local-browser true \
         --mode run \
         --dynamic-memory-type awm \
-        --dynamic-memory-dir /home/t-waynechi/dev/magentic-ui/runs/baseline_web_surfer_only/WebVoyager/webvoyager/train/workflows_awm_bs_all_meta_epoch_1_exp_1 \
-        --system-name tune_awm_bs_all_meta_epoch_1_exp_1 \
+        --dynamic-memory-dir /home/t-waynechi/dev/magentic-ui/runs/baseline_web_surfer_only/WebVoyager/webvoyager/train/workflows_awm_bs_all_meta_epoch_2_exp_1 \
+        --system-name tune_awm_bs_all_meta_epoch_2_exp_1 \
         --run-id $run_id \
         --predefined-task-ids-file /home/t-waynechi/dev/magentic-ui/task_ids_train_1.txt
         # --redo-eval
