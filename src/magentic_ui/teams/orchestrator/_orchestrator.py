@@ -277,7 +277,6 @@ class Orchestrator(BaseGroupChatManager):
             additional_instructions=additional_instructions,
             dynamic_memory_instruction=dynamic_memory_instruction,
         )
-        print("orchestrator_plan_prompt", orchestrator_plan_prompt)
         return orchestrator_plan_prompt
 
     def _get_task_ledger_replan_plan_prompt(

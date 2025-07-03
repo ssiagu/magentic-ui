@@ -138,12 +138,21 @@ def run_system_evaluation(
         def create_benchmark_online_mind_2_web(
             data_dir: str = "OnlineMind2Web", name: str = "OnlineMind2Web"
         ):
+            if args.dynamic_memory_dir is not None:
+                # f must be a file
+                dynamic_memory_files: List[str] | None = [
+                    os.path.join(args.dynamic_memory_dir, f)
+                    for f in os.listdir(args.dynamic_memory_dir)
+                    if os.path.isfile(os.path.join(args.dynamic_memory_dir, f))
+                ]
+            else:
+                dynamic_memory_files = None
             benchmark = OnlineMind2WebBenchmark(
                 data_dir=data_dir,
                 eval_method="gpt_eval",
                 model_client=client,
                 dynamic_memory_type=DynamicMemoryType(args.dynamic_memory_type),
-                dynamic_memory_file=args.dynamic_memory_file,
+                dynamic_memory_files=dynamic_memory_files,
             )
             return benchmark
 
