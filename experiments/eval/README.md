@@ -51,13 +51,13 @@ python experiments/eval/run.py  --current-dir . --dataset Gaia --split validatio
 To explore the results of these runs, you can use the following scripts that generate a CSV inside the logs directory:
 
 ```bash
-python experiments/eval/explore_results.py --run-dir runs/MagenticUI_co-planning-and-execution_soft/Gaia/validation/3 --data-dir data/Gaia
+python experiments/eval/scripts/explore_results.py --run-dir runs/MagenticUI_co-planning-and-execution_soft/Gaia/validation/3 --data-dir data/Gaia
 ```
 
 and
 
 ```bash
-python experiments/eval/analyze_sim_user.py --run-dir runs/MagenticUI_co-planning-and-execution_soft/Gaia/validation/3
+python experiments/eval/scripts/analyze_sim_user.py --run-dir runs/MagenticUI_co-planning-and-execution_soft/Gaia/validation/3
 ```
 
 ### Test Set
@@ -66,7 +66,7 @@ python experiments/eval/analyze_sim_user.py --run-dir runs/MagenticUI_co-plannin
 python experiments/eval/run.py  --current-dir . --dataset Gaia --split test   --run-id 1 --simulated-user-type none --parallel 1 --config experiments/endpoint_configs/config.yaml  --mode run
 ```
 
-You can use the [experiments/eval/prepare_for_submission.py](experiments/eval/prepare_for_submission.py) script to submit to the Gaia and AssistantBench leaderboard.
+You can use the [experiments/eval/scripts/prepare_for_submission.py](experiments/eval/prepare_for_submission.py) script to submit to the Gaia and AssistantBench leaderboard.
 
 ## AssistantBench
 
