@@ -49,55 +49,34 @@ gpt4o_client: &gpt4o_client
           azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
           azure_deployment: gpt-4o_2024-11-20
 
-gpt41_client: &gpt41_client
-  provider: magentic_ui.models.LoadBalancerChatCompletionClient
-  config:
-    clients:
-      - provider: AzureOpenAIChatCompletionClient
-        config: &gpt41_config
-          model: gpt-4.1
-          api_version: "2025-04-01-preview"
-          azure_endpoint: https://trapi.research.microsoft.com/gcr/shared
-          azure_deployment: gpt-4.1_2025-04-14
-          azure_ad_token_provider:
-            provider: "autogen_ext.auth.azure.AzureTokenProvider"
-            config:
-              provider_kind: DefaultAzureCredential
-              scopes: ["api://trapi/.default"]
-      - provider: AzureOpenAIChatCompletionClient
-        config:
-          <<: *gpt41_config
-          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
-
-
-o4_mini_client: &o4_mini_client
-  provider: magentic_ui.models.LoadBalancerChatCompletionClient
-  config:
-    clients:
-      - provider: AzureOpenAIChatCompletionClient
-        config: &o4_mini_config
-          model: gpt-4.1
-          api_version: "2024-12-01-preview"
-          azure_endpoint: https://trapi.research.microsoft.com/gcr/shared
-          azure_deployment: o4-mini_2025-04-16
-          azure_ad_token_provider:
-            provider: "autogen_ext.auth.azure.AzureTokenProvider"
-            config:
-              provider_kind: DefaultAzureCredential
-              scopes: ["api://trapi/.default"]
-      - provider: AzureOpenAIChatCompletionClient
-        config:
-          <<: *o4_mini_config
-          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
-
-
 model_client_configs:
-  orchestrator: *o4_mini_client
-  coder: *o4_mini_client
-  web_surfer: *o4_mini_client
-  file_surfer: *o4_mini_client
+  orchestrator: *gpt4o_mini_client
+  coder: *gpt4o_mini_client
+  web_surfer: *gpt4o_mini_client
+  file_surfer: *gpt4o_mini_client
   action_guard: *gpt4o_mini_client
-  metadata_user: *gpt4o_client
+  metadata_user: *gpt4o_mini_client
+
+mcp_agent_configs:
+  - name: audio_video_agent
+    description: |
+      An agent that can download videos and extract audio from various platforms, including but not limited to:
+        - YouTube
+        - Bilibili
+        - TikTok
+        - Instagram
+        - Twitter/X
+        - Facebook
+        - Vimeo
+        - Dailymotion
+        - SoundCloud
+    model_client: *gpt4o_mini_client
+    mcp_servers:
+      - server_name: audio_video
+        server_params:
+          type: StdioServerParams
+          command: uvx
+          args: ["mcp-video-extraction"]
 
 orchestrator:
   cooperative_planning: false

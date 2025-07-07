@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Literal, Tuple
 
 import aiofiles
 from autogen_agentchat.base import TaskResult
@@ -17,11 +17,16 @@ from autogen_core import Image as AGImage
 from magentic_ui.cli import PrettyConsole
 from magentic_ui.eval.basesystem import BaseSystem
 from magentic_ui.eval.models import BaseCandidate, BaseTask, WebVoyagerCandidate
-from magentic_ui.magentic_ui_config import MagenticUIConfig
+from magentic_ui.magentic_ui_config import (
+    BrowserConfig,
+    MagenticUIConfig,
+    WebSurferConfigOpts,
+)
 from magentic_ui.task_team import get_task_team
+from magentic_ui.teams.orchestrator.orchestrator_config import OrchestratorConfig
 from magentic_ui.types import CheckpointEvent, RunPaths
 from PIL import Image
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 logging.getLogger("autogen").setLevel(logging.WARNING)
@@ -46,26 +51,45 @@ class LogEventSystem(BaseModel):
     metadata: Dict[str, str] = {}
 
 
-BASELINE_MAGUI_CONFIG = MagenticUIConfig(
-    # Configuration for evaluation system
-    cooperative_planning=False,
-    autonomous_execution=True,
-    allow_follow_up_input=False,
-    model_context_token_limit=110000,
-    max_turns=20,
-    allow_for_replans=True,
-    do_bing_search=False,
-    websurfer_loop=False,
-    retrieve_relevant_plans="never",
-    approval_policy="never",
-    max_actions_per_step=10,
-    multiple_tools_per_call=False,
-    browser_headless=True,
-    browser_local=False,
-    inside_docker=False,
-    no_overwrite_of_task=True,
-    # Final answer prompt template - will be formatted with task question
-    final_answer_prompt="""
+class MagenticUIAutonomousSystemConfig(MagenticUIConfig):
+    orchestrator: OrchestratorConfig = Field(
+        default_factory=lambda: OrchestratorConfig(
+            cooperative_planning=False,
+            autonomous_execution=True,
+            allow_follow_up_input=False,
+            model_context_token_limit=110000,
+            max_turns=20,
+            allow_for_replans=True,
+            do_bing_search=False,
+            retrieve_relevant_plans="never",
+            no_overwrite_of_task=True,
+            final_answer_prompt=FINAL_ANSWER_PROMPT,
+        )
+    )
+
+    web_surfer: WebSurferConfigOpts = Field(
+        default_factory=lambda: WebSurferConfigOpts(
+            loop_only=False,
+            max_actions_per_step=10,
+            multiple_tools_per_call=False,
+            do_bing_search=False,
+        )
+    )
+
+    browser: BrowserConfig = Field(
+        default_factory=lambda: BrowserConfig(
+            headless=True,
+            local=False,
+        )
+    )
+    approval_policy: Literal[
+        "always", "never", "auto-conservative", "auto-permissive"
+    ] = "never"
+    inside_docker: bool = False
+    task_timeout_seconds: int = 60 * 15  # Default 15 minutes
+
+
+FINAL_ANSWER_PROMPT = """
 output a FINAL ANSWER to the task.
 
 The real task is: {task}
@@ -78,8 +102,7 @@ If you are asked for a number, express it numerically (i.e., with digits rather 
 If you are asked for a string, don't use articles or abbreviations (e.g. for cities), unless specified otherwise. Don't output any final sentence punctuation such as '.', '!', or '?'.
 If you are asked for a comma separated list, apply the above rules depending on whether the elements are numbers or strings.
 You must answer the question and provide a smart guess if you are unsure. Provide a guess even if you have no idea about the answer.
-""".strip(),
-)
+""".strip()
 
 
 class MagenticUIAutonomousSystem(BaseSystem):
@@ -97,14 +120,16 @@ class MagenticUIAutonomousSystem(BaseSystem):
 
     def __init__(
         self,
-        config: MagenticUIConfig | Dict[str, Any] | None,
+        config: MagenticUIAutonomousSystemConfig | Dict[str, Any] | None,
         name: str = "MagenticUIAutonomousSystem",
         dataset_name: str = "Gaia",
         debug: bool = False,
     ):
         if config is None:
-            config = BASELINE_MAGUI_CONFIG.model_copy()
-        config = MagenticUIConfig.model_validate(config)
+            config = MagenticUIAutonomousSystemConfig()
+        else:
+            config = MagenticUIAutonomousSystemConfig.model_validate(config)
+
         super().__init__(name)
         self.candidate_class = WebVoyagerCandidate
         self.config = config
@@ -139,7 +164,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
             # Step 2: Create the Magentic-UI team
             # TERMINATION CONDITION
             termination_condition = TimeoutTermination(
-                timeout_seconds=60 * 15
+                timeout_seconds=self.config.task_timeout_seconds
             )  # 15 minutes
 
             # --- Use get_task_team instead of manual team/agent construction ---
@@ -156,83 +181,87 @@ class MagenticUIAutonomousSystem(BaseSystem):
                 paths=run_paths,
                 termination_condition=termination_condition,
             )
-            # Step 3: Prepare the task message
-            answer: str = ""
-            # check if file name is an image if it exists
-            if (
-                hasattr(task, "file_name")
-                and task.file_name
-                and task.file_name.endswith((".png", ".jpg", ".jpeg"))
-            ):
-                task_message = MultiModalMessage(
-                    content=[
-                        task_question,
-                        AGImage.from_pil(Image.open(task.file_name)),
-                    ],
-                    source="user",
-                )
-            else:
-                task_message = TextMessage(content=task_question, source="user")
-
-            # Step 4: Run the team on the task
-            async for message in PrettyConsole(
-                team.run_stream(task=task_message), debug=self.debug
-            ):
-                # Store log events
-                message_str: str = ""
-                try:
-                    if isinstance(message, TaskResult) or isinstance(
-                        message, CheckpointEvent
-                    ):
-                        continue
-                    message_str = message.to_text()
-                    # Create log event with source, content and timestamp
-                    log_event = LogEventSystem(
-                        source=message.source,
-                        content=message_str,
-                        timestamp=datetime.datetime.now().isoformat(),
-                        metadata=message.metadata,
+            # Catch any errors after team is created so we can close it
+            try:
+                # Step 3: Prepare the task message
+                answer: str = ""
+                # check if file name is an image if it exists
+                if (
+                    hasattr(task, "file_name")
+                    and task.file_name
+                    and task.file_name.endswith((".png", ".jpg", ".jpeg"))
+                ):
+                    task_message = MultiModalMessage(
+                        content=[
+                            task_question,
+                            AGImage.from_pil(Image.open(task.file_name)),
+                        ],
+                        source="user",
                     )
-                    messages_so_far.append(log_event)
-                except Exception as e:
-                    logger.info(
-                        f"[likely nothing] When creating model_dump of message encountered exception {e}"
-                    )
-                    pass
+                else:
+                    task_message = TextMessage(content=task_question, source="user")
 
-                # save to file
-                # logger.info(f"Run in progress: {task_id}, message: {message_str}")
-                async with aiofiles.open(
-                    f"{output_dir}/{task_id}_messages.json", "w"
-                ) as f:
-                    # Convert list of logevent objects to list of dicts
-                    messages_json = [msg.model_dump() for msg in messages_so_far]
-                    await f.write(json.dumps(messages_json, indent=2))
-                # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
+                # Step 4: Run the team on the task
+                async for message in PrettyConsole(
+                    team.run_stream(task=task_message), debug=self.debug
+                ):
+                    # Store log events
+                    message_str: str = ""
+                    try:
+                        if isinstance(message, TaskResult) or isinstance(
+                            message, CheckpointEvent
+                        ):
+                            continue
+                        message_str = message.to_text()
+                        # Create log event with source, content and timestamp
+                        log_event = LogEventSystem(
+                            source=message.source,
+                            content=message_str,
+                            timestamp=datetime.datetime.now().isoformat(),
+                            metadata=message.metadata,
+                        )
+                        messages_so_far.append(log_event)
+                    except Exception as e:
+                        logger.info(
+                            f"[likely nothing] When creating model_dump of message encountered exception {e}"
+                        )
+                        pass
 
-                if message_str.startswith("Final Answer:"):
-                    answer = message_str[len("Final Answer:") :].strip()
-                    # remove the "FINAL ANSWER:" part and get the string after it
-                    answer = answer.split("FINAL ANSWER:")[1].strip()
+                    # save to file
+                    # logger.info(f"Run in progress: {task_id}, message: {message_str}")
+                    async with aiofiles.open(
+                        f"{output_dir}/{task_id}_messages.json", "w"
+                    ) as f:
+                        # Convert list of logevent objects to list of dicts
+                        messages_json = [msg.model_dump() for msg in messages_so_far]
+                        await f.write(json.dumps(messages_json, indent=2))
+                    # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
 
-            assert isinstance(
-                answer, str
-            ), f"Expected answer to be a string, got {type(answer)}"
+                    if message_str.startswith("Final Answer:"):
+                        answer = message_str[len("Final Answer:") :].strip()
+                        # remove the "FINAL ANSWER:" part and get the string after it
+                        answer = answer.split("FINAL ANSWER:")[1].strip()
 
-            # Step 5: Prepare the screenshots
-            screenshots_paths: List[Tuple[str, str]] = []
-            # check the directory for screenshots which start with screenshot_raw_
-            for file in os.listdir(output_dir):
-                if file.startswith("screenshot_raw_"):
-                    timestamp = file.split("_")[1]
-                    screenshots_paths.append(
-                        (timestamp, os.path.join(output_dir, file))
-                    )
+                assert isinstance(
+                    answer, str
+                ), f"Expected answer to be a string, got {type(answer)}"
 
-            # restrict to last 15 screenshots by timestamp
-            screenshots_paths = sorted(screenshots_paths, key=lambda x: x[0])[-15:]
-            screenshot_files: List[str] = [x[1] for x in screenshots_paths]
-            return answer, screenshot_files
+                # Step 5: Prepare the screenshots
+                screenshots_paths: List[Tuple[str, str]] = []
+                # check the directory for screenshots which start with screenshot_raw_
+                for file in os.listdir(output_dir):
+                    if file.startswith("screenshot_raw_"):
+                        timestamp = file.split("_")[1]
+                        screenshots_paths.append(
+                            (timestamp, os.path.join(output_dir, file))
+                        )
+
+                # restrict to last 15 screenshots by timestamp
+                screenshots_paths = sorted(screenshots_paths, key=lambda x: x[0])[-15:]
+                screenshot_files: List[str] = [x[1] for x in screenshots_paths]
+                return answer, screenshot_files
+            finally:
+                await team.close()
 
         # Step 6: Return the answer and screenshots
         answer, screenshots_paths = asyncio.run(_runner())

@@ -1,4 +1,4 @@
-gpt4o_mini_client: &gpt4o_mini_client
+gpt4o_client: &gpt4o_client
   provider: magentic_ui.models.LoadBalancerChatCompletionClient
   config:
     clients:
@@ -50,19 +50,19 @@ gpt4o_client: &gpt4o_client
           azure_deployment: gpt-4o_2024-11-20
 
 model_client_configs:
-  orchestrator: *gpt4o_mini_client
-  coder: *gpt4o_mini_client
-  web_surfer: *gpt4o_mini_client
-  file_surfer: *gpt4o_mini_client
-  action_guard: *gpt4o_mini_client
-  metadata_user: *gpt4o_mini_client
+  orchestrator: *gpt4o_client
+  coder: *gpt4o_client
+  web_surfer: *gpt4o_client
+  file_surfer: *gpt4o_client
+  action_guard: *gpt4o_client
+  metadata_user: *gpt4o_client
 
 mcp_agent_configs:
   - name: search_agent
     description: |
       An agent that can perform web searches via an API.
       When asked to search something, it will provide a structured list of search result pages.
-    model_client: *gpt4o_mini_client
+    model_client: *gpt4o_client
     mcp_servers:
       - server_name: duckduckgo
         server_params:
@@ -73,7 +73,7 @@ mcp_agent_configs:
     description: |
       An agent that can download and display the contents of web URLs.
       When provided with a URL, it will perform fetch the contents of that page.
-    model_client: *gpt4o_mini_client
+    model_client: *gpt4o_client
     mcp_servers:
       - server_name: fetch
         server_params:
