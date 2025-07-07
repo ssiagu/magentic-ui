@@ -11,7 +11,14 @@ import warnings
 from typing import Any, AsyncGenerator, Dict, Optional
 
 from autogen_agentchat.base import Response, TaskResult
-from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage
+from autogen_agentchat.messages import (
+    BaseAgentEvent,
+    BaseChatMessage,
+    ThoughtEvent,
+    ToolCallExecutionEvent,
+    ToolCallRequestEvent,
+    ToolCallSummaryMessage,
+)
 
 # ╭────────────────────────────────────────────────────────────────────────────╮
 # │  Terminal colours / styles - 7‑bit ANSI so they work everywhere            │
@@ -113,6 +120,53 @@ def is_info_message(msg: str) -> bool:
     return bool(re.match(r"^\s*[A-Z][a-z]+ing\b", msg))
 
 
+def print_content(content: str, colour: str, debug: bool = False, max_lines: int = 10, message_type: str = "Message", icon: str = "📄") -> None:
+    """Print content with proper formatting, wrapping, and optional line count truncation.
+    
+    Args:
+        content: The content to print
+        colour: The color code for the left border
+        debug: If True, don't truncate the number of lines
+        max_lines: Maximum number of lines to display (when not in debug mode)
+        message_type: The type of message to display in the header
+    """
+    width = _terminal_width()
+    left = f"{colour}┃{RESET} "
+    body_w = width - len(left)
+    
+    # Print message type header
+    print(f"\n{left}{BOLD}{colour}{icon} {message_type}{RESET}")
+    
+    lines = content.splitlines()
+    non_empty_lines = [line for line in lines if line.strip()]
+    
+    # In debug mode, show all lines
+    if debug:
+        lines_to_show = non_empty_lines
+        show_truncation = False
+    else:
+        # Truncate number of lines when not in debug mode
+        if len(non_empty_lines) > max_lines:
+            lines_to_show = non_empty_lines[:max_lines]
+            show_truncation = True
+        else:
+            lines_to_show = non_empty_lines
+            show_truncation = False
+    
+    for line in lines_to_show:
+        if len(line) <= body_w:
+            print(f"{left}{line}")
+        else:
+            for chunk in textwrap.wrap(line, body_w):
+                print(f"{left}{chunk}")
+    
+    # Show truncation indicator if we truncated lines
+    if show_truncation:
+        remaining = len(non_empty_lines) - max_lines
+        print(f"{left}{CYAN}... ({remaining} more lines){RESET}")
+    
+    print()  # Add spacing after content
+
 # ╭────────────────────────────────────────────────────────────────────────────╮
 # │  Agent‑specific colour selection (deterministic but cheap)                 │
 # ╰────────────────────────────────────────────────────────────────────────────╯
@@ -174,26 +228,10 @@ def pretty_print_json(raw: str, colour: str) -> bool:
     if not ok or obj in ([], {}):
         return False
 
-    width = _terminal_width()
-    left = f"{colour}┃{RESET} "
     indent_json = json.dumps(obj, indent=2, ensure_ascii=False)
     indent_json = re.sub(r'"([^"\\]+)":', rf'"{BOLD}\1{RESET}":', indent_json)
-
-    print()  # top spacer
-    for line in indent_json.splitlines():
-        if len(line) <= width - len(left):
-            print(f"{left}{line}")
-        else:  # wrap overly long line while preserving indent
-            lead = len(line) - len(line.lstrip())
-            body = line[lead:]
-            for i, chunk in enumerate(
-                textwrap.wrap(
-                    body, width=width - len(left) - lead, break_long_words=False
-                )
-            ):
-                prefix = " " * lead if i else ""
-                print(f"{left}{prefix}{chunk}")
-    print()  # bottom spacer
+    
+    print_content(indent_json, colour, debug=True, message_type="JSON Data", icon="📋")
     return True
 
 
@@ -292,15 +330,93 @@ def try_format_step(raw: str, colour: str) -> bool:
     ok, obj = try_parse_json(raw)
     if not ok or not {"step", "content"}.issubset(obj):
         return False
-    width = _terminal_width()
+    
     title = obj.get("title", f"Step {obj['step']}")
-    print(
-        f"\n{BOLD}{colour}╔{'═' * (width - 4)}╗\n"
-        f"║ {title:<{width - 6}}║\n"
-        f"╚{'═' * (width - 4)}╝{RESET}\n"
-    )
-    print(f"{BOLD}{colour}┃{RESET} {obj['content']}\n")
+    content = obj['content']
+    
+    print_content(content, colour, debug=True, message_type=title, icon="📋")
     return True
+
+
+# ╭────────────────────────────────────────────────────────────────────────────╮
+# │  Tool call event formatters                                                │
+# ╰────────────────────────────────────────────────────────────────────────────╯
+
+
+def format_tool_call_request(event: ToolCallRequestEvent, colour: str, debug: bool = False) -> None:
+    """Format a ToolCallRequestEvent for display."""
+    
+    # Build content string for all tool calls
+    content_lines: list[str] = []
+    for i, call in enumerate(event.content, 1):
+        content_lines.append(f"Call {i}: {call.name}")
+        
+        # Parse and display arguments if available
+        try:
+            args = json.loads(call.arguments)
+            if args:
+                for key, value in args.items():
+                    value_str = str(value)
+                    # Truncate long values only if not in debug mode
+                    if not debug and len(value_str) > 80:
+                        value_str = value_str[:77] + "..."
+                    content_lines.append(f"  {key}: {value_str}")
+        except Exception:
+            content_lines.append(f"  arguments: {call.arguments}")
+        
+        if i < len(event.content):  # Add spacing between calls
+            content_lines.append("")
+    
+    content = "\n".join(content_lines)
+    print_content(content, colour, debug=debug, message_type="Tool Call Request", icon="🔧")
+
+
+def format_tool_call_execution(event: ToolCallExecutionEvent, colour: str, debug: bool = False) -> None:
+    """Format a ToolCallExecutionEvent for display."""
+    
+    # Build content string for all tool call results
+    content_lines: list[str] = []
+    for i, result in enumerate(event.content, 1):
+        content_lines.append(f"Result {i}:")
+        
+        # Display call_id if available
+        if hasattr(result, "call_id"):
+            content_lines.append(f"  call_id: {result.call_id}")
+        
+        # Display content
+        if hasattr(result, "content"):
+            content = str(result.content)
+            content_lines.append("  content:")
+            
+            # Add indented content lines
+            for line in content.split("\n"):
+                if line.strip():  # Only add non-empty lines
+                    content_lines.append(f"    {line}")
+        
+        if i < len(event.content):  # Add spacing between results
+            content_lines.append("")
+    
+    final_content = "\n".join(content_lines)
+    print_content(final_content, colour, debug=debug, message_type="Tool Call Results", icon="✅")
+
+
+def format_tool_call_summary(event: ToolCallSummaryMessage, colour: str, debug: bool = False) -> None:
+    """Format a ToolCallSummaryMessage for display."""
+    content = str(getattr(event, "content", ""))
+    if content:
+        print_content(content, colour, debug=debug, message_type="Tool Call Summary")
+
+
+# ╭────────────────────────────────────────────────────────────────────────────╮
+# │  Thought event formatter                                                   │
+# ╰────────────────────────────────────────────────────────────────────────────╯
+
+
+def format_thought_event(event: ThoughtEvent, colour: str, debug: bool = False) -> None:
+    """Format a ThoughtEvent for display."""
+    content = str(getattr(event, "content", ""))
+    if content:
+        print_content(content, colour, debug=debug, message_type="Thought Process", icon="🧠")
 
 
 # ╭────────────────────────────────────────────────────────────────────────────╮
@@ -327,15 +443,16 @@ async def _PrettyConsole(
 
         def __init__(self, dbg: bool, flag: Dict[str, bool]):
             self.dbg, self.flag = dbg, flag
+            # Store the current stdout at creation time (which might be redirected)
+            self._stdout = sys.stdout
 
         def write(self, txt: str):
             if self.dbg or self.flag["open"]:
-                if sys.__stdout__ is not None:
-                    sys.__stdout__.write(txt)
+                # Write to the current stdout (respects redirection)
+                self._stdout.write(txt)
 
         def flush(self):
-            if sys.__stdout__ is not None:
-                sys.__stdout__.flush()
+            self._stdout.flush()
 
     gate = {"open": False}
     sys.stdout = _Gate(debug, gate)
@@ -362,35 +479,39 @@ async def _PrettyConsole(
 
                 colour = agent_color(src)
                 content = str(getattr(msg, "content", ""))
-
-                if is_info_message(content):
-                    print(format_info_line(content))
-                elif pretty_print_plan(content, colour):
+                # if isinstance(msg, ToolCallSummaryMessage):
+                #     format_tool_call_summary(msg, colour)
+                # elif is_info_message(content):
+                #     print(format_info_line(content))
+                if pretty_print_plan(content, colour):
                     pass
                 elif pretty_print_json(content, colour):
                     pass
                 elif try_format_step(content, colour):
                     pass
                 else:
-                    width = _terminal_width()
-                    left = f"{colour}┃{RESET} "
-                    body_w = width - len(left)
-                    for line in content.splitlines():
-                        if not line.strip():
-                            continue
-                        if len(line) <= body_w:
-                            print(f"{left}{line}")
-                        else:
-                            for chunk in textwrap.wrap(line, body_w):
-                                print(f"{left}{chunk}")
+                    print_content(content, colour, debug, message_type="Text Message")
 
-            # Event message (non‑chat)
+            # Event message (non‑chat) - including tool call events
             elif isinstance(msg, BaseAgentEvent):
-                if debug:
-                    print(
-                        f"{BOLD}{YELLOW}[EVENT]{RESET} "
-                        f"{msg.__class__.__name__} from {getattr(msg, 'source', 'unknown')}"
-                    )
+                # Check if this is one of the tool call events we want to display
+                src = getattr(msg, 'source', 'unknown')
+                
+                # Set current agent for tool events
+                if src != current_agent and src != 'unknown':
+                    previous_agent, current_agent = current_agent, src
+                    if previous_agent and current_agent:
+                        print("\n" + transition_line(previous_agent, current_agent))
+                    print(header_box(src))
+                
+                colour = agent_color(src)
+                
+                if isinstance(msg, ToolCallRequestEvent):
+                    format_tool_call_request(msg, colour, debug)
+                elif isinstance(msg, ToolCallExecutionEvent):
+                    format_tool_call_execution(msg, colour, debug)
+                elif isinstance(msg, ThoughtEvent):
+                    format_thought_event(msg, colour, debug)
 
             # TaskResult / Response (final outputs)
             elif isinstance(msg, (TaskResult, Response)):
