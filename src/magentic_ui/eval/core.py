@@ -1,14 +1,18 @@
-import os
-import logging
-import shutil
-import multiprocessing
-import time
-import json
-import random
 import datetime
-from typing import Optional, Union, List, Tuple, Callable
-from .benchmark import load_benchmark_class, Benchmark
-from .basesystem import load_system_class, BaseSystem
+import json
+import logging
+import multiprocessing
+import os
+import random
+import shutil
+import time
+from queue import Empty, Queue
+from typing import Callable, List, Optional, Tuple, Union
+
+from tqdm import tqdm
+
+from .basesystem import BaseSystem, load_system_class
+from .benchmark import Benchmark, load_benchmark_class
 from .models import AllCandidateTypes, AllEvalResultTypes
 
 
@@ -55,13 +59,23 @@ def _setup_file_logging(
 
     # Setup basic config for console output
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
         handlers=[
             logging.StreamHandler(),  # Console handler
             file_handler,  # File handler
         ],
     )
+
+    # Add file_handler to all existing loggers
+    logger_dict = logging.Logger.manager.loggerDict
+    for _, logger_obj in logger_dict.items():
+        if isinstance(logger_obj, logging.Logger):
+            logger_obj.addHandler(file_handler)
+    # Also add to root logger if not already present
+    root_logger = logging.getLogger()
+    if file_handler not in root_logger.handlers:
+        root_logger.addHandler(file_handler)
 
 
 logger = logging.getLogger(__name__)
@@ -88,6 +102,7 @@ def _run_single_task(
     benchmark_dir: str,
     reload_benchmark: bool,
     benchmark_name: str,
+    progress_queue: Optional[Queue[str]] = None,
 ) -> Tuple[str, Optional[AllCandidateTypes], float]:
     """Run a single task in a separate process.
 
@@ -127,7 +142,9 @@ def _run_single_task(
         else:
             system = system_constructor
 
-        assert isinstance(system, BaseSystem), "system must be a BaseSystem instance"
+        assert isinstance(
+            system, BaseSystem
+        ), "system must be a BaseSystem instance"
 
         # Initialize or reload benchmark if needed
         if isinstance(benchmark_constructor, Benchmark):
@@ -145,22 +162,24 @@ def _run_single_task(
         # If there's already an answer, skip
         if os.path.exists(question_dir):
             try:
-                existing_answer = system.load_answer_from_disk(task_id, question_dir)
+                existing_answer = system.load_answer_from_disk(
+                    task_id, question_dir
+                )
                 if existing_answer:
                     times_path = os.path.join(question_dir, "times.json")
                     if os.path.exists(times_path):
                         with open(times_path, "r") as f:
                             times_data = json.load(f)
-                            logger.info(f"Skipping {task_id} (already has answer).")
                             return (
                                 task_id,
                                 existing_answer,
                                 times_data.get("duration", 0),
                             )
                     else:
-                        raise FileNotFoundError(f"Times file not found for {task_id}")
-            except Exception as e:
-                logger.info(f"Error loading existing answer for {task_id}: {e}")
+                        raise FileNotFoundError(
+                            f"Times file not found for {task_id}"
+                        )
+            except Exception:
                 # Clear question directory
                 for file in os.listdir(question_dir):
                     file_path = os.path.join(question_dir, file)
@@ -174,7 +193,8 @@ def _run_single_task(
             file_path = task.file_name
             if os.path.exists(file_path):
                 shutil.copy(
-                    file_path, os.path.join(question_dir, os.path.basename(file_path))
+                    file_path,
+                    os.path.join(question_dir, os.path.basename(file_path)),
                 )
             task.file_name = os.path.join(question_dir, os.path.basename(file_path))
 
@@ -201,11 +221,16 @@ def _run_single_task(
                 f,
             )
 
-        logger.info(f"Completed task for task_id={task_id}")
+
         return task_id, answer, end_time - start_time
-    except Exception as e:
-        logger.info(f"Error running task for {task_id}: {e}")
+    except Exception:
+        logger.exception(f"Caught exception running task {task_id}")
         return task_id, None, 0
+
+    finally:
+        # Send progress update if queue is provided
+        if progress_queue is not None:
+            progress_queue.put(task_id)
 
 
 # ----------------------------------------------------------------------
@@ -263,6 +288,7 @@ def run_benchmark_func(
     benchmark_constructor: Optional[Union[Callable[..., Benchmark], Benchmark]] = None,
     system_constructor: Optional[Union[Callable[..., BaseSystem], BaseSystem]] = None,
     subsample: Optional[float] = None,
+    question_ids: Optional[List[str]] = None,
     seed: Optional[int] = 42,
     reload_benchmark_per_task: bool = False,
     reload_system_per_task: bool = False,
@@ -280,6 +306,7 @@ def run_benchmark_func(
         benchmark_constructor (Union[Callable[..., BaseSystem] | BaseSystem, optional): Optional callable to create benchmark instance
         system_constructor: Optional callable or instance to create/use system
         subsample (float, optional): Optional fraction (0-1] of tasks to evaluate
+        question_ids (List[str], optional): Optional list of specific question IDs to evaluate
         seed (int, optional): Random seed for reproducibility. Default: 42
         reload_benchmark_per_task (bool, optional): Whether to reload benchmark for each task. Default: False
         reload_system_per_task (bool, optional): Whether to reload system for each task. Default: False
@@ -297,8 +324,13 @@ def run_benchmark_func(
     - Provides progress logging
     """
     _setup_file_logging(runs_dir, system_name, benchmark_name, split, run_id)
+
     if subsample is not None and not (0 < subsample <= 1):
         raise ValueError("subsample must be in the range (0, 1].")
+    if subsample and question_ids:
+        raise ValueError(
+            "Cannot use both subsample and question_ids parameters together. Choose one."
+        )
     if seed is not None:
         random.seed(seed)
 
@@ -357,36 +389,72 @@ def run_benchmark_func(
         benchmark.get_split_tasks(split) if split else list(benchmark.tasks.keys())
     )
 
+    # Filter by specific question IDs if provided
+    if question_ids:
+        # Filter task_ids to only include those in question_ids
+        task_ids = [task_id for task_id in task_ids if task_id in question_ids]
+        logger.info(f"Filtered to {len(task_ids)} tasks based on question IDs")
+
     if subsample and 0 < subsample <= 1:
         task_ids = random.sample(task_ids, int(len(task_ids) * subsample))
-
-    # Task preparation bundles all necessary data for parallel execution
-    tasks_system_data = [
-        (
-            system_constructor,
-            task_id,
-            output_dir,
-            reload_system_per_task,
-            benchmark_constructor if reload_benchmark_per_task else benchmark,
-            benchmark_dir,
-            reload_benchmark_per_task,
-            benchmark_name,
-        )
-        for task_id in task_ids
-    ]
 
     logger.info(
         f"Starting run_benchmark with {'sequential' if parallel == 1 else str(parallel) + ' processes'}..."
     )
+    logger.info(f"Total tasks to run: {len(task_ids)}")
 
-    # Separate path for non-parallel execution
-    if parallel == 1:
-        results: List[Tuple[str, Optional[AllCandidateTypes], float]] = []
-        for task_data in tasks_system_data:
-            results.append(_run_single_task(*task_data))
-    else:
-        with multiprocessing.Pool(processes=parallel) as pool:
-            results = pool.starmap(_run_single_task, tasks_system_data)
+    with multiprocessing.Manager() as manager:
+        progress_queue: Queue[str] = manager.Queue()
+
+        task_args = [
+            (
+                system_constructor,
+                task_id,
+                output_dir,
+                reload_system_per_task,
+                benchmark_constructor if reload_benchmark_per_task else benchmark,
+                benchmark_dir,
+                reload_benchmark_per_task,
+                benchmark_name,
+                progress_queue,
+            )
+            for task_id in task_ids
+        ]
+
+        # Get all loggers from the logging module's manager
+        logger_dict = logging.Logger.manager.loggerDict
+        loggers = [logging.getLogger()]  # root logger
+        for _, obj in logger_dict.items():
+            if isinstance(obj, logging.Logger):
+                loggers.append(obj)
+
+        with tqdm(desc="Running tasks", unit="task", total=len(task_args)) as pbar:
+            # Separate path for non-parallel execution
+            if parallel == 1:
+                # For sequential execution, don't include progress_queue
+                results: List[Tuple[str, Optional[AllCandidateTypes], float]] = []
+
+                for args in task_args:
+                    # For sequential execution, don't pass progress_queue
+                    results.append(_run_single_task(*args))
+                    pbar.update()
+            else:
+                with multiprocessing.Pool(processes=parallel) as pool:
+                    # Use starmap_async for non-blocking execution
+                    async_result = pool.starmap_async(_run_single_task, task_args)
+
+                    # Monitor progress while waiting for results
+                    completed_tasks = 0
+                    while not async_result.ready():
+                        # Try to get a progress update with timeout
+                        try:
+                            progress_queue.get(timeout=1)
+                            completed_tasks += 1
+                            pbar.update(1)
+                        except Empty:
+                            time.sleep(1)
+
+                    results = async_result.get()
 
     success_count = sum(1 for _, answer, _ in results if answer is not None)
     total_time = sum(t for _, a, t in results if a is not None)
@@ -480,6 +548,7 @@ def evaluate_benchmark_func(
     benchmark_constructor: Optional[Union[Callable[..., Benchmark], Benchmark]] = None,
     system_constructor: Optional[Union[Callable[..., BaseSystem], BaseSystem]] = None,
     parallel: int = 1,
+    question_ids: Optional[List[str]] = None,
     redo_eval: bool = False,
 ) -> None:
     """Evaluates benchmark results across single or multiple runs.
@@ -516,7 +585,14 @@ def evaluate_benchmark_func(
     all_scores: List[List[AllEvalResultTypes]] = []
     all_durations: List[List[float]] = []
     all_quids: List[List[str]] = []
-    for rid in run_ids:
+
+    if len(run_ids) > 1:
+        logger.info(f"Evaluating {len(run_ids)} runs...")
+        run_ids_iter = tqdm(run_ids, desc="Evaluating runs", unit="run")
+    else:
+        run_ids_iter = run_ids
+
+    for rid in run_ids_iter:
         # Prepare benchmark constructor if needed
         if benchmark_constructor is None and benchmark_name:
             benchmark_class = load_benchmark_class(benchmark_name)
@@ -539,73 +615,92 @@ def evaluate_benchmark_func(
                 f"No system output found at {output_dir}. Run the benchmark first."
             )
 
-        # Initialize system
-        if system_constructor is None:
-            system_class = load_system_class(system_name)
-            system = system_class(system_name)
-        elif callable(system_constructor):
-            system = system_constructor()
-        else:
-            system = system_constructor
+    # Initialize system
+    if system_constructor is None:
+        system_class = load_system_class(system_name)
+        system = system_class(system_name)
+    elif callable(system_constructor):
+        system = system_constructor()
+    else:
+        system = system_constructor
 
-        tasks = benchmark.get_split_tasks(split) if split else benchmark.tasks
-        tasks_sys_benchmark_data = [
-            (task_id, system, output_dir, benchmark, redo_eval) for task_id in tasks
-        ]
+    tasks = (
+        benchmark.get_split_tasks(split) if split else list(benchmark.tasks.keys())
+    )
 
-        # Separate path for non-parallel execution
-        if parallel == 1:
-            single_results: List[Tuple[str, Optional[AllEvalResultTypes], float]] = []
-            for task_sys_benchmark_data in tasks_sys_benchmark_data:
-                single_results.append(_evaluate_single_task(*task_sys_benchmark_data))
-        else:
-            with multiprocessing.Pool(processes=parallel) as pool:
-                single_results = pool.starmap(
-                    _evaluate_single_task, tasks_sys_benchmark_data
-                )
-
-        # Process single_results in place of the for ex in exs loop
-        scores: List[AllEvalResultTypes] = []
-        durations: List[float] = []
-        quids: List[str] = []
-        failed_count = 0
-        for qid, score, duration in single_results:
-            if score is not None:
-                scores.append(score)
-                quids.append(qid)
-                if duration != -1:
-                    durations.append(duration)
-            else:
-                failed_count += 1
-
+    # Filter by specific question IDs if provided
+    if question_ids:
+        # tasks is always a list of task IDs at this point
+        tasks = [task_id for task_id in tasks if task_id in question_ids]
         logger.info(
-            f"Evaluation results for run {rid}: {len(scores)} successful, {failed_count} failed/missing"
+            f"Filtered to {len(tasks)} tasks based on question IDs for evaluation"
         )
 
-        if durations:
-            avg_time = sum(durations) / len(durations)
-            logger.info(f"Average time across evaluated tasks: {avg_time:.4f} s")
+    tasks_sys_benchmark_data = [
+        (task_id, system, output_dir, benchmark, redo_eval) for task_id in tasks
+    ]
+
+    # Separate path for non-parallel execution
+    if parallel == 1:
+        single_results: List[Tuple[str, Optional[AllEvalResultTypes], float]] = []
+        for task_sys_benchmark_data in tqdm(
+            tasks_sys_benchmark_data,
+            desc="Evaluating tasks",
+            unit="task",
+            total=len(tasks_sys_benchmark_data),
+        ):
+            single_results.append(
+                _evaluate_single_task(*task_sys_benchmark_data)
+            )
+    else:
+        with multiprocessing.Pool(processes=parallel) as pool:
+            single_results = pool.starmap(
+                _evaluate_single_task, tasks_sys_benchmark_data
+            )
+
+    # Process single_results in place of the for ex in exs loop
+    scores: List[AllEvalResultTypes] = []
+    durations: List[float] = []
+    quids: List[str] = []
+    failed_count = 0
+    for qid, score, duration in single_results:
+        if score is not None:
+            scores.append(score)
+            quids.append(qid)
+            if duration != -1:
+                durations.append(duration)
         else:
-            avg_time = -1
+            failed_count += 1
 
-        metrics = benchmark.compute_aggregate_metrics(scores, quids)
-        logger.info(f"Evaluation metrics: {metrics}")
+    logger.info(
+        f"Evaluation results for run {rid}: {len(scores)} successful, {failed_count} failed/missing"
+    )
 
-        # Add average time and scores to metrics
-        metrics["average_time"] = avg_time
-        metrics["scores"] = [
-            (id, score.model_dump_json()) for id, score in zip(quids, scores)
-        ]
+    if durations:
+        avg_time = sum(durations) / len(durations)
+        logger.info(f"Average time across evaluated tasks: {avg_time:.4f} s")
+    else:
+        avg_time = -1
 
-        # Save metrics to a file
-        metrics_path = os.path.join(output_dir, "metrics.json")
-        with open(metrics_path, "w") as f:
-            json.dump(metrics, f)
-        logger.info(f"Metrics saved to {metrics_path}")
+    metrics = benchmark.compute_aggregate_metrics(scores, quids)
+    logger.info(f"Evaluation metrics: {metrics}")
 
-        all_scores.append(scores)
-        all_durations.append(durations)
-        all_quids.append(quids)
+    # Add average time and scores to metrics
+    metrics["average_time"] = avg_time
+    metrics["scores"] = [
+        (id, score.model_dump_json()) for id, score in zip(quids, scores)
+    ]
+
+    # Save metrics to a file
+    metrics_path = os.path.join(output_dir, "metrics.json")
+    with open(metrics_path, "w") as f:
+        json.dump(metrics, f)
+    logger.info(f"Metrics saved to {metrics_path}")
+
+    all_scores.append(scores)
+    all_durations.append(durations)
+    all_quids.append(quids)
+    
     if len(run_ids) > 1:
         benchmark = download_and_load_benchmark(
             benchmark_name, benchmark_dir, benchmark_constructor
@@ -639,6 +734,7 @@ def run_evaluate_benchmark_func(
     benchmark_constructor: Optional[Union[Callable[..., Benchmark], Benchmark]] = None,
     system_constructor: Optional[Union[Callable[..., BaseSystem], BaseSystem]] = None,
     subsample: Optional[float] = None,
+    question_ids: Optional[List[str]] = None,
     seed: Optional[int] = None,
     redo_eval: bool = False,
     reload_benchmark_per_task: bool = False,
@@ -657,6 +753,7 @@ def run_evaluate_benchmark_func(
         benchmark_constructor (callable, optional): Optional callable to create benchmark instance
         system_constructor (callable | BaseSystem, optional): Optional callable or instance to create/use system
         subsample (float, optional): Optional fraction (0-1] of tasks to evaluate
+        question_ids (List[str], optional): Optional list of specific question IDs to evaluate
         seed (int, optional): Optional random seed for reproducibility
         redo_eval (bool, optional): Whether to redo evaluation even if results exist. Default: False
         reload_benchmark_per_task (bool, optional): Whether to reload benchmark for each task. Default: False
@@ -667,7 +764,13 @@ def run_evaluate_benchmark_func(
     else:
         run_ids = run_id
 
-    for rid in run_ids:
+    if len(run_ids) > 1:
+        logger.info(f"Running {len(run_ids)} runs...")
+        run_ids_iter = tqdm(run_ids, desc="Runs", unit="run")
+    else:
+        run_ids_iter = run_ids
+
+    for rid in run_ids_iter:
         run_benchmark_func(
             benchmark_name=benchmark_name,
             system_name=system_name,
@@ -679,10 +782,12 @@ def run_evaluate_benchmark_func(
             benchmark_constructor=benchmark_constructor,
             system_constructor=system_constructor,
             subsample=subsample,
+            question_ids=question_ids,
             seed=seed,
             reload_benchmark_per_task=reload_benchmark_per_task,
             reload_system_per_task=reload_system_per_task,
         )
+
     evaluate_benchmark_func(
         benchmark_name=benchmark_name,
         system_name=system_name,
@@ -693,5 +798,6 @@ def run_evaluate_benchmark_func(
         benchmark_constructor=benchmark_constructor,
         system_constructor=system_constructor,
         parallel=parallel,
+        question_ids=question_ids,
         redo_eval=redo_eval,
     )
