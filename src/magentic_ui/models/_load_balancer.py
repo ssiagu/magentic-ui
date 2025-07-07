@@ -1,6 +1,7 @@
-import asyncio
 from collections import OrderedDict
-from typing import Any, List, Mapping, Optional, Sequence, Union
+from enum import Enum
+from threading import Lock
+from typing import Any, AsyncGenerator, List, Mapping, Optional, Sequence, Union
 
 from autogen_core import CancellationToken, Component, ComponentModel
 from autogen_core.models import (
@@ -13,8 +14,14 @@ from loguru import logger
 from pydantic import BaseModel
 
 
+class LoadBalanceStrategy(Enum):
+    GREEDY = 0
+    ROUND_ROBIN = 1
+
+
 class LoadBalancerChatCompletionClientConfig(BaseModel):
     clients: List[Union[ComponentModel, Mapping[str, Any]]]
+    strategy: LoadBalanceStrategy = LoadBalanceStrategy.GREEDY
 
 
 class LoadBalancerChatCompletionClient(
@@ -22,25 +29,68 @@ class LoadBalancerChatCompletionClient(
 ):
     """A load balancer that distributes requests among multiple ChatCompletionClients.
 
-    Simple logic:
-    1. Try a model
-    2. If the model fails, move it to the end of the list of models
-    3. Try the next model in the list
+    Arguments:
+        clients (List[ChatCompletionClient]): The clients to balance requests among
+        strategy (LoadBalanceStrategy, optional): The strategy 
+
+        
+    Greedy:
+        1. Use the first model in the list
+        1a. If success: Exit (next request will use this model again)
+        1b. If fail: Move model to end of list and return to 1.
+        2. If all clients failed: raise group exception
+
+    Round Robin:
+        1. Try the next model
+        1a. If success: Move model to end of list and exit (next request will use next model)
+        1b. If fail: Move model to end of list and return to 1.
+        2. If all clients failed: raise group exception
     """
 
     component_type = "model_client"
     component_config_schema = LoadBalancerChatCompletionClientConfig
-    component_provider_override = "magentic_ui.models.LoadBalancerChatCompletionClient"
+    component_provider_override = f"{__name__}.LoadBalancerChatCompletionClient"
 
-    def __init__(self, clients: List[ChatCompletionClient]) -> None:
+    def __init__(
+        self,
+        clients: List[ChatCompletionClient],
+        strategy: LoadBalanceStrategy = LoadBalanceStrategy.GREEDY,
+    ) -> None:
         super().__init__()
         if not clients:
             raise ValueError("At least one client must be provided")
 
-        self._clients: OrderedDict[int, ChatCompletionClient] = OrderedDict() 
+        self._clients: OrderedDict[int, ChatCompletionClient] = OrderedDict()
         for client in clients:
             self._clients[id(client)] = client
-        self._lock = asyncio.Lock()
+
+        self._lock = Lock()
+        self.strategy = strategy
+
+    def _client_failed(self, client_id: int):
+        with self._lock:
+            if client_id in self._clients:
+                self._clients.move_to_end(client_id)
+            else:
+                logger.warning(f"Cannot fail unrecognized client {client_id}.")
+
+    def _client_succeeded(self, client_id: int):
+        if self.strategy == LoadBalanceStrategy.GREEDY:
+            # NoOp, keep using good clints until they fail
+            return
+        elif self.strategy == LoadBalanceStrategy.ROUND_ROBIN:
+            # Move the client to the end
+            with self._lock:
+                if client_id in self._clients:
+                    self._clients.move_to_end(client_id)
+                else:
+                    logger.warning(f"Cannot move unrecognized client {client_id}.")
+        else:
+            raise ValueError(f"Urecognized LoadBalanceStrategy: {self.strategy}")
+
+    def _get_next_models(self):
+        with self._lock:
+            return self._clients.copy()
 
     @property
     def model_info(self) -> ModelInfo:
@@ -193,17 +243,33 @@ class LoadBalancerChatCompletionClient(
         exceptions: List[Exception] = []
 
         # For streaming, we'll try clients in order and move failed ones to the end
-        clients_to_try = self._clients.copy()
+        next_clients = self._get_next_models()
 
-        for client_id, client in clients_to_try.items():
+        async def wrap_stream(
+            client_id: int, stream: AsyncGenerator[str | CreateResult, None]
+        ):
             try:
-                return client.create_stream(
-                    messages=messages, cancellation_token=cancellation_token, **kwargs
+                async for item in stream:
+                    yield item
+                self._client_succeeded(client_id)
+            except Exception:
+                # Don't log, whoever is consuming this generator is handling the errors
+                self._client_failed(client_id)
+                raise
+
+        for client_id, client in next_clients.items():
+            try:
+                return wrap_stream(
+                    client_id,
+                    client.create_stream(
+                        messages=messages,
+                        cancellation_token=cancellation_token,
+                        **kwargs,
+                    ),
                 )
             except Exception as e:
-                logger.warning(f"Streaming request failed with client {client}: {e}")
-                # Move the failed client to the end of the list
-                self._clients.move_to_end(client_id)
+                logger.warning(f"Failed to create streaming request for client {client_id}: {e}")
+                self._client_failed(client_id)
                 exceptions.append(e)
                 continue
 
@@ -220,24 +286,20 @@ class LoadBalancerChatCompletionClient(
         **kwargs: Any,
     ) -> CreateResult:
         """Create a chat completion using the load balancer with simple retry logic."""
-        async with self._lock:
-            clients_to_try = self._clients.copy()
+        next_clients = self._get_next_models()
 
         exceptions: List[Exception] = []
 
-        for client_id, client in clients_to_try.items():
+        for client_id, client in next_clients.items():
             try:
                 result = await client.create(
                     messages=messages, cancellation_token=cancellation_token, **kwargs
                 )
-
+                self._client_succeeded(client_id)
                 return result
 
             except Exception as e:
-                async with self._lock:
-                    # Move the failing client to the end
-                    self._clients.move_to_end(client_id)
-
+                self._client_failed(client_id)
                 logger.warning(f"Request failed with client {client}: {e}")
                 exceptions.append(e)
                 continue
@@ -263,7 +325,9 @@ class LoadBalancerChatCompletionClient(
         for client in self._clients.values():
             client_configs.append(client.dump_component())
 
-        return LoadBalancerChatCompletionClientConfig(clients=client_configs)
+        return LoadBalancerChatCompletionClientConfig(
+            clients=client_configs, strategy=self.strategy
+        )
 
     @classmethod
     def _from_config(
@@ -285,4 +349,4 @@ class LoadBalancerChatCompletionClient(
                 logger.error(f"Failed to load client from config: {e}")
                 continue
 
-        return cls(clients)
+        return cls(clients, strategy=config.strategy)
