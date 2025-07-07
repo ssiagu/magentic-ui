@@ -1,0 +1,11 @@
+autogen_ext[mcp]
+numpy
+scipy
+pandas
+matplotlib
+h5py
+openpyxl
+xlrd
+pyyaml
+pillow
+librosa
