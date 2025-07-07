@@ -8,12 +8,12 @@ from autogen_core.tools import (
     ToolSchema,
     Workbench,
 )
-from pydantic import BaseModel
-
 from autogen_ext.tools.mcp import (
-    McpWorkbench,
     McpServerParams,
+    McpWorkbench,
 )
+from loguru import logger
+from pydantic import BaseModel
 
 # According to the OpenAI API tool names can contain "Only letters, numbers, '_' and '-' are allowed."
 NAMESPACE_SEPARATOR = "-"
@@ -102,6 +102,7 @@ class AggregateMcpWorkbench(Workbench, Component[AggregateMcpWorkbenchConfig]):
     def __init__(self, named_server_params: List[NamedMcpServerParams]) -> None:
         # Create a copy of server_params
         self._workbenches: Dict[str, McpWorkbench] = {}
+        self._workbench_tools: Dict[str, List[ToolSchema]] = {}
         for params in named_server_params:
             # Check if valid
             if escape_tool_name(params.server_name) != params.server_name:
@@ -129,15 +130,29 @@ class AggregateMcpWorkbench(Workbench, Component[AggregateMcpWorkbenchConfig]):
 
     async def list_tools(self) -> List[ToolSchema]:
         schema: List[ToolSchema] = []
-        for server_name, workbench in self._workbenches.items():
-            workbench_tools = await workbench.list_tools()
-            for tool in workbench_tools:
-                # Make a copy of the tool updating the name to be escaped and within this server's 'namespace'
-                tool_name = escape_tool_name(tool["name"])
-                namespaced_tool_name = f"{server_name}{NAMESPACE_SEPARATOR}{tool_name}"
-                namespaced_tool = ToolSchema({**tool, "name": namespaced_tool_name})
-                schema.append(namespaced_tool)
 
+        if self._workbench_tools:
+            for tools in self._workbench_tools.values():
+                schema.extend(tools)
+            
+            return schema
+        
+        for server_name, workbench in self._workbenches.items():
+            try:
+                workbench_tools = await workbench.list_tools()
+                self._workbench_tools[server_name] = workbench_tools
+                schema.extend(workbench_tools)
+                # CURRENTLY NOT USED TO ISOLATE TOOLSPACE INTERFERENCE TESTS
+                # for tool in workbench_tools:
+                #     # Make a copy of the tool updating the name to be escaped and within this server's 'namespace'
+                #     tool_name = escape_tool_name(tool["name"])
+                #     namespaced_tool_name = f"{server_name}{NAMESPACE_SEPARATOR}{tool_name}"
+                #     namespaced_tool = ToolSchema({**tool, "name": namespaced_tool_name})
+                #     schema.append(namespaced_tool)
+            except Exception:
+                logger.exception(f"Error listing tools for workbench: {server_name}")
+                continue
+        
         return schema
 
     async def call_tool(
@@ -146,6 +161,18 @@ class AggregateMcpWorkbench(Workbench, Component[AggregateMcpWorkbenchConfig]):
         arguments: Mapping[str, Any] | None = None,
         cancellation_token: CancellationToken | None = None,
     ) -> ToolResult:
+        
+        for server_name, tools in self._workbench_tools.items():
+            for tool in tools:
+                if tool["name"] == name:
+                    return await self._workbenches[server_name].call_tool(name, arguments, cancellation_token)
+
+        raise KeyError(
+            f"Cannot call tool named '{name}'. No tools with that name."
+        )
+    
+        # CURRENTLY NOT USED TO ISOLATE TOOLSPACE INTERFERENCE TESTS
+
         try:
             # Split the server name from teh tool name
             server_name, tool_name = name.split(NAMESPACE_SEPARATOR, 1)
