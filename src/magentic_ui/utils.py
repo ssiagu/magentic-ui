@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import psutil
-from typing import List, Union, Dict
+from typing import List, Sequence, Union, Dict
 
 from autogen_core.models import (
     LLMMessage,
@@ -120,7 +120,7 @@ def dict_to_str(data: Union[JsonDict, str]) -> str:
 
 
 def thread_to_context(
-    messages: List[BaseAgentEvent | BaseChatMessage],
+    messages: Sequence[BaseAgentEvent | BaseChatMessage],
     agent_name: str,
     is_multimodal: bool = False,
 ) -> List[LLMMessage]:
@@ -133,7 +133,7 @@ def thread_to_context(
         elif isinstance(m, StopMessage | HandoffMessage):
             context.append(UserMessage(content=m.content, source=m.source))
         elif m.source == agent_name:
-            assert isinstance(m, TextMessage), f"{type(m)}"
+            assert isinstance(m, BaseTextChatMessage), f"{type(m)}"
             context.append(AssistantMessage(content=m.content, source=m.source))
         elif m.source == "user_proxy" or m.source == "user":
             assert isinstance(m, TextMessage | MultiModalMessage), f"{type(m)}"
