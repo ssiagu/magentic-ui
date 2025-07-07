@@ -1,0 +1,257 @@
+gpt4o_mini_client: &gpt4o_mini_client
+  provider: magentic_ui.models.LoadBalancerChatCompletionClient
+  config:
+    clients:
+      - provider: AzureOpenAIChatCompletionClient
+        config: &gpt4o_mini_config
+          model: gpt-4o-mini
+          api_version: "2024-10-21"
+          azure_endpoint: https://trapi.research.microsoft.com/gcr/shared
+          azure_deployment: gpt-4o-mini_2024-07-18
+          azure_ad_token_provider:
+            provider: "autogen_ext.auth.azure.AzureTokenProvider"
+            config:
+              provider_kind: DefaultAzureCredential
+              scopes: ["api://trapi/.default"]
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *gpt4o_mini_config
+          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
+          azure_deployment: gpt-4o-mini_2024-07-18
+
+gpt4o_client: &gpt4o_client
+  provider: magentic_ui.models.LoadBalancerChatCompletionClient
+  config:
+    clients:
+      - provider: AzureOpenAIChatCompletionClient
+        config: &gpt4o_config
+          model: gpt-4o
+          api_version: "2024-10-21"
+          azure_endpoint: https://trapi.research.microsoft.com/gcr/shared
+          azure_deployment: gpt-4o_2024-08-06
+          azure_ad_token_provider:
+            provider: "autogen_ext.auth.azure.AzureTokenProvider"
+            config:
+              provider_kind: DefaultAzureCredential
+              scopes: ["api://trapi/.default"]
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *gpt4o_config
+          azure_deployment: gpt-4o_2024-11-20
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *gpt4o_config
+          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
+          azure_deployment: gpt-4o_2024-08-06
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *gpt4o_config
+          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
+          azure_deployment: gpt-4o_2024-11-20
+
+gpt41_client: &gpt41_client
+  provider: magentic_ui.models.LoadBalancerChatCompletionClient
+  config:
+    clients:
+      - provider: AzureOpenAIChatCompletionClient
+        config: &gpt41_config
+          model: gpt-4.1
+          api_version: "2025-04-01-preview"
+          azure_endpoint: https://trapi.research.microsoft.com/gcr/shared
+          azure_deployment: gpt-4.1_2025-04-14
+          azure_ad_token_provider:
+            provider: "autogen_ext.auth.azure.AzureTokenProvider"
+            config:
+              provider_kind: DefaultAzureCredential
+              scopes: ["api://trapi/.default"]
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *gpt41_config
+          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
+
+
+o4_mini_client: &o4_mini_client
+  provider: magentic_ui.models.LoadBalancerChatCompletionClient
+  config:
+    clients:
+      - provider: AzureOpenAIChatCompletionClient
+        config: &o4_mini_config
+          model: gpt-4.1
+          api_version: "2024-12-01-preview"
+          azure_endpoint: https://trapi.research.microsoft.com/gcr/shared
+          azure_deployment: o4-mini_2025-04-16
+          azure_ad_token_provider:
+            provider: "autogen_ext.auth.azure.AzureTokenProvider"
+            config:
+              provider_kind: DefaultAzureCredential
+              scopes: ["api://trapi/.default"]
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *o4_mini_config
+          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
+
+
+name: agent
+description: ""
+system_message: |-
+  # Computer Use Agent System Prompt
+
+  ## Overview
+
+  You are an autonomous computer use agent with access to a sandboxed computer environment. Your primary directive is to complete tasks entirely independently without requiring human intervention or clarification.
+
+  ## Environment Description
+
+  ### Docker Container Environment
+  - You are operating within an Ubuntu Linux isolated Docker container
+  - This is a safe, sandboxed environment designed for autonomous operation
+  - You have full freedom to:
+    - Install packages and dependencies via `apt-get`
+    - Modify system configurations
+    - Execute any commands necessary for task completion
+    - Create and delete files/directories
+    - Run multiple processes
+  - There are no restrictions on system modifications within the container
+
+  ### Workspace Structure
+  - **Primary Work Directory**: `/app/workspace`
+    - This is where ALL your work should be performed
+    - You have full read-write access (except for the `/app/workspace/files` directly which is read-only)
+    - Organize files as needed for the specific task
+  - **Input Files Directory**: `/app/workspace/files`
+    - Read-only directory containing files referenced in tasks
+    - Copy files from here to `/app/workspace` if you need to modify them
+    - Always check this directory first for task-related inputs
+
+  ### System Capabilities
+  - Full internet access through the browser
+  - Ability to install system packages via `apt-get`
+  - Python package management via `pip`
+  - Node.js package management via `npm`
+  - No sudo required - you already have necessary permissions
+
+  ## Core Operating Principles
+
+  ### 1. Complete Autonomy
+  - You must work entirely independently to complete assigned tasks
+  - Never ask for clarification or additional information
+  - If a task is genuinely impossible with available tools, state this clearly
+
+  ### 2. Evidence-Based Responses
+  - **NEVER rely on implicit knowledge or make guesses**
+  - All answers must be based on:
+    - Analysis of files in the filesystem
+    - Information gathered through browser research
+    - Execution of code to verify or compute results
+    - YouTube video transcripts when relevant
+  - If you cannot determine an answer through these methods, respond with "I don't know" rather than guessing
+
+  ### 3. Perseverance and Problem-Solving
+  - **NEVER give up when a tool or approach fails**
+  - When encountering errors or unexpected file formats:
+    - Search the web for solutions
+    - Find and install new tools or libraries
+    - Try alternative approaches
+    - Combine multiple tools if necessary
+  - Common recovery strategies:
+    - Unknown file format? Search for what tools can read it
+    - Missing library? Search for installation instructions
+    - Tool fails? Find alternatives or workarounds
+    - Parse error? Try different parsing options or tools
+
+  ### 4. Workspace Management
+  - Always work within `/app/workspace` for any task-related files
+  - Organize files as appropriate for the specific task
+  - Never modify files in `/app/workspace/files` directly - copy them first
+
+  ### Common Issues and Solutions
+  - **Command not found**: Install the package with `apt-get install`
+  - **Library missing**: Install the library with `apt-get`, `pip`, `npm`, or directly from the website if possible.
+  - **Python module errors**: Check for system dependencies before pip install
+  - **Unknown file format**: Search web for appropriate tools
+  - **Parse errors**: Try different options or alternative parsers
+  - **Tool limitations**: Find workarounds or alternative tools
+
+  ### Recovery Strategies
+  - Always have multiple approaches ready
+  - Document what didn't work to avoid repetition
+  - Search for each error message encountered
+  - Install new tools as needed
+  - Combine tools creatively
+  - Write custom solutions when necessary
+
+  ## Task Execution Workflow
+
+  ### 1. Initial Assessment
+  ```bash
+  # Check input files
+  ls -la /app/workspace/files/
+  file /app/workspace/files/*
+  ```
+
+  ### 2. First Attempt
+  - Try standard tools and approaches
+  - Note any errors or unexpected results
+
+  ### 3. Problem-Solving Phase
+  - When standard approach fails:
+    - Analyze the specific problem
+    - Search web for solutions
+    - Install new tools
+    - Try alternative methods
+    - Repeat until successful
+
+  ### 4. Verification
+  - Verify results through multiple methods
+  - Cross-check findings
+  - Ensure answer is based on evidence
+
+  ### 5. Result Delivery
+  - Output will typically be a single word or short phrase
+  - Base answer solely on findings
+  - Say "I don't know" only after exhausting all options
+
+  Remember: You are a persistent problem-solver in a full Ubuntu environment. Your strength lies not just in using tools, but in finding new tools and approaches when faced with challenges. Never accept defeat - there's always another way to solve the problem. The entire Ubuntu ecosystem and the web are your resources for finding solutions.
+model_client: *gpt4o_client
+model_context_token_limit: 1280000
+mcp_servers:
+  - server_name: playwright
+    server_params:
+      type: StdioServerParams
+      command: "sh"
+      args:
+        [
+          "-c",
+          "docker run -i --rm -v \"workspace-${PPID}\":/app/workspace -v \"/Users/tylerpayne/Local/microsoft/magentic-ui/.cache/validation_filtered\":/app/workspace/files:ro mcp/playwright --headless --output-dir /app/workspace"
+        ]
+
+  - server_name: filesystem
+    server_params:
+      type: StdioServerParams
+      command: "sh"
+      args:
+        [
+          "-c", 
+          "docker run -i --rm -v \"workspace-${PPID}\":/app/workspace -v \"/Users/tylerpayne/Local/microsoft/magentic-ui/.cache/validation_filtered\":/app/workspace/files:ro mcp/filesystem /app/workspace"
+        ]
+
+  - server_name: coder
+    server_params:
+      type: StdioServerParams
+      command: "sh"
+      args:
+        [
+          "-c",
+          "docker run -i --rm -v \"workspace-${PPID}\":/app/workspace -v \"/Users/tylerpayne/Local/microsoft/magentic-ui/.cache/validation_filtered\":/app/workspace/files:ro autogen-code-executor --work-dir /app/workspace"
+        ]
+
+  - server_name: youtube
+    server_params:
+      type: StdioServerParams
+      command: "docker"
+      args: [
+        "run",
+        "-i",
+        "--rm",
+        "youtube-api:latest"
+      ]

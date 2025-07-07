@@ -1,0 +1,105 @@
+gpt4o_mini_client: &gpt4o_mini_client
+  provider: magentic_ui.models.LoadBalancerChatCompletionClient
+  config:
+    clients:
+      - provider: AzureOpenAIChatCompletionClient
+        config: &gpt4o_mini_config
+          model: gpt-4o-mini
+          api_version: "2024-10-21"
+          azure_endpoint: https://trapi.research.microsoft.com/gcr/shared
+          azure_deployment: gpt-4o-mini_2024-07-18
+          azure_ad_token_provider:
+            provider: "autogen_ext.auth.azure.AzureTokenProvider"
+            config:
+              provider_kind: DefaultAzureCredential
+              scopes: ["api://trapi/.default"]
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *gpt4o_mini_config
+          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
+          azure_deployment: gpt-4o-mini_2024-07-18
+
+gpt4o_client: &gpt4o_client
+  provider: magentic_ui.models.LoadBalancerChatCompletionClient
+  config:
+    clients:
+      - provider: AzureOpenAIChatCompletionClient
+        config: &gpt4o_config
+          model: gpt-4o
+          api_version: "2024-10-21"
+          azure_endpoint: https://trapi.research.microsoft.com/gcr/shared
+          azure_deployment: gpt-4o_2024-08-06
+          azure_ad_token_provider:
+            provider: "autogen_ext.auth.azure.AzureTokenProvider"
+            config:
+              provider_kind: DefaultAzureCredential
+              scopes: ["api://trapi/.default"]
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *gpt4o_config
+          azure_deployment: gpt-4o_2024-11-20
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *gpt4o_config
+          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
+          azure_deployment: gpt-4o_2024-08-06
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *gpt4o_config
+          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
+          azure_deployment: gpt-4o_2024-11-20
+
+gpt41_client: &gpt41_client
+  provider: magentic_ui.models.LoadBalancerChatCompletionClient
+  config:
+    clients:
+      - provider: AzureOpenAIChatCompletionClient
+        config: &gpt41_config
+          model: gpt-4.1
+          api_version: "2025-04-01-preview"
+          azure_endpoint: https://trapi.research.microsoft.com/gcr/shared
+          azure_deployment: gpt-4.1_2025-04-14
+          azure_ad_token_provider:
+            provider: "autogen_ext.auth.azure.AzureTokenProvider"
+            config:
+              provider_kind: DefaultAzureCredential
+              scopes: ["api://trapi/.default"]
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *gpt41_config
+          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
+
+
+o4_mini_client: &o4_mini_client
+  provider: magentic_ui.models.LoadBalancerChatCompletionClient
+  config:
+    clients:
+      - provider: AzureOpenAIChatCompletionClient
+        config: &o4_mini_config
+          model: gpt-4.1
+          api_version: "2024-12-01-preview"
+          azure_endpoint: https://trapi.research.microsoft.com/gcr/shared
+          azure_deployment: o4-mini_2025-04-16
+          azure_ad_token_provider:
+            provider: "autogen_ext.auth.azure.AzureTokenProvider"
+            config:
+              provider_kind: DefaultAzureCredential
+              scopes: ["api://trapi/.default"]
+      - provider: AzureOpenAIChatCompletionClient
+        config:
+          <<: *o4_mini_config
+          azure_endpoint: https://trapi.research.microsoft.com/msraif/shared
+
+
+name: agent
+description: ""
+system_message: |-
+  You are a fully autonomous research and development assistant operating in a closed-loop environment. You CANNOT ask the user any questions or request clarification. You must work independently to complete tasks using only the tools available to you.
+model_client: *o4_mini_client
+model_context_token_limit: 100000
+mcp_servers:
+  - server_name: duckduckgo
+    server_params:
+      type: StdioServerParams
+      command: docker
+      args: ["run", "-i", "--rm", "mcp/duckduckgo"]
