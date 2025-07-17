@@ -30,6 +30,7 @@ from typing import (
 
 from dataclasses import dataclass
 import logging
+from .action_guard_tracker import get_tracker
 
 
 """
@@ -190,34 +191,105 @@ class ApprovalGuard(BaseApprovalGuard):
         llm_guess: MaybeRequiresApproval,
         action_context: list[LLMMessage],
     ) -> bool:
+        # Track the call
+        tracker = get_tracker()
+        
         if self.config.approval_policy == "always":
-            return True
+            result = True
+            tracker.log_call(
+                call_type="requires_approval",
+                action_name="unknown",
+                baseline=baseline,
+                llm_guess=llm_guess,
+                action_context=action_context,
+                needs_approval=result,
+                additional_data={"policy": "always"}
+            )
+            return result
 
         if self.config.approval_policy == "never":
-            return False
+            result = False
+            tracker.log_call(
+                call_type="requires_approval",
+                action_name="unknown",
+                baseline=baseline,
+                llm_guess=llm_guess,
+                action_context=action_context,
+                needs_approval=result,
+                additional_data={"policy": "never"}
+            )
+            return result
 
         # smart approval policy
         if baseline == "never":
-            return False
+            result = False
+            tracker.log_call(
+                call_type="requires_approval",
+                action_name="unknown",
+                baseline=baseline,
+                llm_guess=llm_guess,
+                action_context=action_context,
+                needs_approval=result,
+                additional_data={"reason": "baseline_never"}
+            )
+            return result
         elif baseline == "always":
-            return True
+            result = True
+            tracker.log_call(
+                call_type="requires_approval",
+                action_name="unknown",
+                baseline=baseline,
+                llm_guess=llm_guess,
+                action_context=action_context,
+                needs_approval=result,
+                additional_data={"reason": "baseline_always"}
+            )
+            return result
 
         if self.config.approval_policy == "auto-permissive":
             if llm_guess == "never":
-                return False
+                result = False
             else:
-                return True
+                result = True
+            tracker.log_call(
+                call_type="requires_approval",
+                action_name="unknown",
+                baseline=baseline,
+                llm_guess=llm_guess,
+                action_context=action_context,
+                needs_approval=result,
+                additional_data={"policy": "auto-permissive"}
+            )
+            return result
 
         else:
             # auto-conservative policy mode
             # baseline == "maybe"
             if self.model_client is None:
-                return self.default_approval
+                result = self.default_approval
+                tracker.log_call(
+                    call_type="requires_approval",
+                    action_name="unknown",
+                    baseline=baseline,
+                    llm_guess=llm_guess,
+                    action_context=action_context,
+                    needs_approval=result,
+                    additional_data={"reason": "no_model_client", "default_approval": self.default_approval}
+                )
+                return result
             action_proposal = action_context[-1] if action_context else None
             if action_proposal is None:
-                return (
-                    self.default_approval
-                )  # TODO: Should we require an approval if we have no context?
+                result = self.default_approval
+                tracker.log_call(
+                    call_type="requires_approval",
+                    action_name="unknown",
+                    baseline=baseline,
+                    llm_guess=llm_guess,
+                    action_context=action_context,
+                    needs_approval=result,
+                    additional_data={"reason": "no_action_proposal", "default_approval": self.default_approval}
+                )
+                return result  # TODO: Should we require an approval if we have no context?
 
             check_prompt = IRREVERSIBLE_CHECK_PROMPT_TEMPLATE.format(
                 approval_message=action_proposal.content
@@ -236,27 +308,57 @@ class ApprovalGuard(BaseApprovalGuard):
                 self.logger.warning(
                     "Model did not return a string response. Defaulting to True for irreversibility check."
                 )
-                return True
+                needs_approval = True
+                tracker.log_call(
+                    call_type="requires_approval",
+                    action_name="unknown",
+                    baseline=baseline,
+                    llm_guess=llm_guess,
+                    action_context=action_context,
+                    needs_approval=needs_approval,
+                    additional_data={"reason": "invalid_model_response", "model_response": str(result.content)}
+                )
+                return needs_approval
 
             self.logger.info(
                 f"Checking action irreversibility for {action_proposal.content}:\n\n\t--- {result.content}"
             )
 
             if result.content.lower() in ["yes", "y"]:
-                return True
+                needs_approval = True
             elif result.content.lower() in ["no", "n"]:
-                return False
+                needs_approval = False
             else:
                 self.logger.warning(
                     "Model did not return a valid response. Expected 'yes' or 'no'. Defaulting to True for irreversibility check."
                 )
-                return True
+                needs_approval = True
+            
+            tracker.log_call(
+                call_type="requires_approval",
+                action_name="unknown",
+                baseline=baseline,
+                llm_guess=llm_guess,
+                action_context=action_context,
+                needs_approval=needs_approval,
+                additional_data={"model_response": result.content, "check_prompt": check_prompt}
+            )
+            return needs_approval
 
     async def get_approval(
         self, action_description: TextMessage | MultiModalMessage
     ) -> bool:
+        tracker = get_tracker()
+        
         if self.input_func is None:
-            return self.default_approval
+            result = self.default_approval
+            tracker.log_call(
+                call_type="get_approval",
+                action_name="unknown",
+                approved=result,
+                additional_data={"reason": "no_input_func", "default_approval": self.default_approval}
+            )
+            return result
 
         # Use the input function to get user approval
         action_description_str: str
@@ -281,9 +383,23 @@ class ApprovalGuard(BaseApprovalGuard):
                 # { accepted: true/false, content: "..." }
                 result = json.loads(result_or_json)
                 if isinstance(result, dict) and "accepted" in result:
-                    return bool(result["accepted"])  # type: ignore
+                    approved = bool(result["accepted"])  # type: ignore
+                    tracker.log_call(
+                        call_type="get_approval",
+                        action_name="unknown",
+                        approved=approved,
+                        additional_data={"user_input": result_or_json, "parsed_json": result}
+                    )
+                    return approved
                 else:
-                    return self.default_approval
+                    result = self.default_approval
+                    tracker.log_call(
+                        call_type="get_approval",
+                        action_name="unknown",
+                        approved=result,
+                        additional_data={"reason": "invalid_json_format", "user_input": result_or_json, "default_approval": self.default_approval}
+                    )
+                    return result
 
             except json.JSONDecodeError:
                 pass
@@ -294,9 +410,30 @@ class ApprovalGuard(BaseApprovalGuard):
             "y",
             "I don't know. Use your best judgment.",
         ]:
-            return True
+            approved = True
+            tracker.log_call(
+                call_type="get_approval",
+                action_name="unknown",
+                approved=approved,
+                additional_data={"user_input": result_or_json}
+            )
+            return approved
         elif result_or_json.lower() in ["deny", "no", "n"]:
-            return False
+            approved = False
+            tracker.log_call(
+                call_type="get_approval",
+                action_name="unknown",
+                approved=approved,
+                additional_data={"user_input": result_or_json}
+            )
+            return approved
         else:
             # If the input is not recognized, default to the default_approval
-            return self.default_approval
+            result = self.default_approval
+            tracker.log_call(
+                call_type="get_approval",
+                action_name="unknown",
+                approved=result,
+                additional_data={"reason": "unrecognized_input", "user_input": result_or_json, "default_approval": self.default_approval}
+            )
+            return result

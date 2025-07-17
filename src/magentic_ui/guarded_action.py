@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from inspect import iscoroutinefunction
 
 from abc import ABC, abstractmethod
+from .action_guard_tracker import get_tracker
 
 TReturn = TypeVar("TReturn", covariant=True)
 TStream = TypeVar("TStream", covariant=True)
@@ -102,7 +103,10 @@ class BaseGuardedAction(Generic[TReturn], ABC):
             action_guard (ApprovalGuard, optional): The action guard to use to approve the action.
             action_description_for_user (TextMessage | MultiModalMessage, optional): The description of the action for the user.
         """
+        tracker = get_tracker()
         needs_approval: bool = False
+        approved: bool = False
+        
         if action_guard is not None:
             baseline: MaybeRequiresApproval = self._get_baseline()
             llm_guess: MaybeRequiresApproval = baseline
@@ -141,6 +145,18 @@ class BaseGuardedAction(Generic[TReturn], ABC):
                     )
 
                 if not approved:
+                    # Log the denied action
+                    tracker.log_call(
+                        call_type="invoke_with_approval",
+                        action_name=self.name,
+                        baseline=baseline,
+                        llm_guess=llm_guess,
+                        action_context=action_context,
+                        needs_approval=needs_approval,
+                        approved=approved,
+                        call_arguments=call_arguments,
+                        additional_data={"result": "denied"}
+                    )
                     raise ApprovalDeniedError(
                         "Action was denied by the approval guard."
                     )
@@ -148,11 +164,37 @@ class BaseGuardedAction(Generic[TReturn], ABC):
             # Invoke the action
             result = await self.action(**call_arguments)
 
+            # Log successful action
+            tracker.log_call(
+                call_type="invoke_with_approval",
+                action_name=self.name,
+                baseline=baseline if action_guard is not None else None,
+                llm_guess=llm_guess if action_guard is not None else None,
+                action_context=action_context,
+                needs_approval=needs_approval,
+                approved=approved if needs_approval else None,
+                call_arguments=call_arguments,
+                additional_data={"result": "success"}
+            )
+
             if self.cleanup is not None:
                 await self.cleanup()
 
             return result
-        except Exception:
+        except Exception as e:
+            # Log failed action
+            tracker.log_call(
+                call_type="invoke_with_approval",
+                action_name=self.name,
+                baseline=baseline if action_guard is not None else None,
+                llm_guess=llm_guess if action_guard is not None else None,
+                action_context=action_context,
+                needs_approval=needs_approval,
+                approved=approved if needs_approval else None,
+                call_arguments=call_arguments,
+                additional_data={"result": "exception", "exception": str(e), "exception_type": type(e).__name__}
+            )
+            
             if self.cleanup is not None:
                 await self.cleanup()
 
