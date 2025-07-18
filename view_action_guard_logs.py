@@ -30,8 +30,14 @@ def format_context(context):
     
     return "\n".join(formatted)
 
-def view_logs(log_file="action_guard_calls.jsonl", call_type=None, action_name=None):
-    """View action guard logs with optional filtering."""
+def format_action_proposal(proposal):
+    """Format action proposal for display."""
+    if not proposal:
+        return "No action proposal"
+    return proposal[:200] + "..." if len(proposal) > 200 else proposal
+
+def view_logs(log_file="action_guard_calls.jsonl"):
+    """View action guard logs in simplified format."""
     log_path = Path(log_file)
     
     if not log_path.exists():
@@ -46,34 +52,24 @@ def view_logs(log_file="action_guard_calls.jsonl", call_type=None, action_name=N
             try:
                 entry = json.loads(line.strip())
                 
-                # Apply filters
-                if call_type and entry.get("call_type") != call_type:
-                    continue
-                if action_name and entry.get("action_name") != action_name:
-                    continue
-                
-                # Display entry
+                # Display simplified entry
                 print(f"\n[{line_no}] {format_timestamp(entry['timestamp'])}")
-                print(f"Call Type: {entry['call_type']}")
-                print(f"Action: {entry['action_name']}")
                 
                 if entry.get("baseline"):
                     print(f"Baseline: {entry['baseline']}")
                 if entry.get("llm_guess"):
                     print(f"LLM Guess: {entry['llm_guess']}")
-                if entry.get("needs_approval") is not None:
-                    print(f"Needs Approval: {entry['needs_approval']}")
-                if entry.get("approved") is not None:
-                    print(f"Approved: {entry['approved']}")
+                if entry.get("approved_by_llm") is not None:
+                    print(f"Approved by LLM: {entry['approved_by_llm']}")
                 
-                if entry.get("context"):
-                    print(f"Context:\n{format_context(entry['context'])}")
+                if entry.get("action_proposal"):
+                    print(f"Action Proposal:\n  {format_action_proposal(entry['action_proposal'])}")
                 
-                if entry.get("call_arguments"):
-                    print(f"Arguments: {entry['call_arguments']}")
+                if entry.get("llm_context"):
+                    print(f"LLM Context:\n{format_context(entry['llm_context'])}")
                 
-                if entry.get("additional_data"):
-                    print(f"Additional Data: {entry['additional_data']}")
+                if entry.get("action_guard_context"):
+                    print(f"Action Guard Context (sent to LLM):\n{format_context(entry['action_guard_context'])}")
                 
                 print("-" * 40)
                 
@@ -86,13 +82,10 @@ def main():
     parser = argparse.ArgumentParser(description="View action guard call logs")
     parser.add_argument("--log-file", default="action_guard_calls.jsonl", 
                        help="Path to the log file (default: action_guard_calls.jsonl)")
-    parser.add_argument("--call-type", choices=["requires_approval", "get_approval", "invoke_with_approval"],
-                       help="Filter by call type")
-    parser.add_argument("--action-name", help="Filter by action name")
     
     args = parser.parse_args()
     
-    view_logs(args.log_file, args.call_type, args.action_name)
+    view_logs(args.log_file)
 
 if __name__ == "__main__":
     main()

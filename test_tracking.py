@@ -21,8 +21,8 @@ async def test_action_guard_tracking():
     """Test that action guard calls are being tracked properly."""
     print("Testing action guard tracking...")
     
-    # Create a simple approval guard
-    config = ApprovalConfig(approval_policy="never")
+    # Create a simple approval guard with auto-conservative policy to trigger LLM calls
+    config = ApprovalConfig(approval_policy="auto-conservative")
     guard = ApprovalGuard(config=config)
     
     # Test requires_approval method
@@ -73,7 +73,7 @@ async def test_action_guard_tracking():
             for i, line in enumerate(lines, 1):
                 try:
                     entry = json.loads(line.strip())
-                    print(f"   {i}. {entry['timestamp']}: {entry['call_type']} - {entry.get('action_name', 'unknown')}")
+                    print(f"   {i}. {entry['timestamp']}: baseline={entry.get('baseline')}, llm_guess={entry.get('llm_guess')}, approved={entry.get('approved_by_llm')}")
                 except json.JSONDecodeError:
                     print(f"   {i}. Invalid JSON: {line.strip()}")
     else:

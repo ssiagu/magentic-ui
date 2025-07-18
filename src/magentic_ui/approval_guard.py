@@ -341,7 +341,7 @@ class ApprovalGuard(BaseApprovalGuard):
                 llm_guess=llm_guess,
                 action_context=action_context,
                 needs_approval=needs_approval,
-                additional_data={"model_response": result.content, "check_prompt": check_prompt}
+                additional_data={"model_response": result.content, "llm_request_messages": request_messages}
             )
             return needs_approval
 

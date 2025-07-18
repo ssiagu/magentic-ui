@@ -260,7 +260,7 @@ class PlaywrightController:
             await page.reload()
             await self._ensure_page_ready(page)
             # try again
-            screenshot = await page.screenshot(path=path, timeout=5000)
+            screenshot = await page.screenshot(path=path, timeout=10000)
             return screenshot
 
     async def sleep(self, page: Page, duration: Union[int, float]) -> None:
