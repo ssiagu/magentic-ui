@@ -1,8 +1,7 @@
-import { generateText } from 'ai';
-import { openai } from '@ai-sdk/openai';
 import { NextRequest } from 'next/server';
 
 import { RunAnalysisRequestSchema, SystemPromptAnalysisSchema, RunAnalysisSchema } from '@/types'
+import { azureChatCompletion } from '@/utils/azure-client';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +13,10 @@ export async function POST(req: NextRequest) {
 
 Your job is to provide actionable aggregate suggestions given the failure reasons and suggestions from a set of individual task analyses.
 
-Be specific and actionable in your analysis.`;
+Constraints of the system:
+- Fully autonomous. The agent is _never_ allowed to talk to the user.
+
+Be specific and actionable in your analysis, but do not violate any of the contraints.`;
 
     let userPrompt = `Analyze this AI agent task execution:
 
@@ -25,17 +27,28 @@ ${taskAnalyses.map((taskAnalysis, idx) =>
 
 Please provide your suggestions for improving the agent.`;
 
-    const { text: suggestion } = await generateText({
-      model: openai(model),
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: temperature,
+    const suggestionResponse = await azureChatCompletion(model, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ], {
+      temperature: temperature
     });
 
+    const suggestion = suggestionResponse.choices[0]?.message?.content;
+    if (!suggestion) {
+      throw new Error('No suggestion response content from Azure API');
+    }
 
     systemPrompt = `You are an expert AI evaluator analyzing why an AI agent succeeded or failed on a benchmark. 
 
-Your job is to re-write the agent's original system prompt given suggestions for improvement.`
+Your job is to re-write the agent's original system prompt given suggestions for improvement.
+
+Please provide your analysis in the following JSON format:
+{
+  "reason": "A clear summary of common task failure reasons",
+  "suggestion": "Actionable suggestions on how to improve task execution on average."
+  "systemPrompt": "An updated system prompt based on your suggestions"
+}`
 
     userPrompt = `# Expert Suggestions:
 ${suggestion}
@@ -43,23 +56,38 @@ ${suggestion}
 # Original System Prompt:
 ${originalSystemPrompt}
 
-Please write an updated system prompt to improve the agent's performance. Just write the system prompt directly.`
+Please provide your analysis in the requested JSON format.`
 
-    const { text: newSystemPrompt } = await generateText({
-      model: openai(model),
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: temperature,
+    const response = await azureChatCompletion(model, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ], {
+      temperature: temperature
     });
 
-    const result = RunAnalysisSchema.parse({
-      taskAnalyses: taskAnalyses,
-      systemPromptAnalysis: SystemPromptAnalysisSchema.parse({
-        originalPrompt: originalSystemPrompt,
-        suggestedPrompt: newSystemPrompt
-      }),
-      suggestion: suggestion,
+    const text = response.choices[0]?.message?.content;
+    if (!text) {
+      throw new Error('No response content from Azure API');
+    }
 
+    const jsonMatch = text.match(/{[\s\S]*}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON object found in analysis response');
+    }
+
+    const jsonText = jsonMatch[0];
+    const jsonObject = JSON.parse(jsonText);
+
+    const systemPromptAnalysis = SystemPromptAnalysisSchema.parse({
+      originalPrompt: originalSystemPrompt,
+      suggestedPrompt: jsonObject.systemPrompt
+    });
+
+    delete jsonObject.systemPrompt;
+
+    const result = RunAnalysisSchema.parse({
+      systemPromptAnalysis: systemPromptAnalysis,
+      ...jsonObject
     });
 
     return Response.json(result);

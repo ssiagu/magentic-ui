@@ -34,7 +34,7 @@ export const TaskTimesSchema = z.object({
 
 export const TaskDataSchema = z.object({
     taskId: z.string().min(1), // Task ID cannot be empty
-    messages: z.array(TaskMessageSchema).min(1), // Must have at least one message
+    messages: z.array(TaskMessageSchema), // Allow empty messages array
     answer: TaskAnswerSchema,
     score: TaskScoreSchema,
     times: TaskTimesSchema,

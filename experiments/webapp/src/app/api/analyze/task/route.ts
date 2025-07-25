@@ -1,8 +1,7 @@
-import { generateText } from 'ai';
-import { openai } from '@ai-sdk/openai';
 import { NextRequest } from 'next/server';
 
 import { TaskAnalysisSchema, TaskAnalysisRequestSchema } from '@/types'
+import { azureChatCompletion } from '@/utils/azure-client';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,7 +19,10 @@ Please provide your analysis in the following JSON format:
   "suggestion": "Actionable suggestions on how to improve the task execution if it failed"
 }
 
-Be specific and actionable in your analysis.`;
+Constraints of the system:
+- Fully autonomous. The agent is _never_ allowed to talk to the user.
+
+Be specific and actionable in your analysis, but do not violate any of the contraints.`;
 
     const userPrompt = `Analyze this AI agent task execution:
 
@@ -35,12 +37,17 @@ ${task.messages.map((msg, idx) =>
 
 Please analyze why this task ${task.score.score === 1 ? 'succeeded' : 'failed'} and provide your assessment in the requested JSON format.`;
 
-    const { text } = await generateText({
-      model: openai(model),
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: temperature,
+    const response = await azureChatCompletion(model, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ], {
+      temperature: temperature
     });
+
+    const text = response.choices[0]?.message?.content;
+    if (!text) {
+      throw new Error('No response content from Azure API');
+    }
 
     const jsonMatch = text.match(/{[\s\S]*}/);
     if (!jsonMatch) {

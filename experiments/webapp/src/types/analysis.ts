@@ -14,9 +14,9 @@ export const SystemPromptAnalysisSchema = z.object({
 })
 
 export const RunAnalysisSchema = z.object({
-    taskAnalyses: z.array(TaskAnalysisSchema).default([]),
-    systemPromptAnalysis: SystemPromptAnalysisSchema.optional(),
+    reason: z.string(),
     suggestion: z.string().optional(),
+    systemPromptAnalysis: SystemPromptAnalysisSchema.optional(),
 })
 
 

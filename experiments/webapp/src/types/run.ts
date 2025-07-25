@@ -23,7 +23,7 @@ export const RunArgsSchema = z.object({
     run_continue: z.boolean(),
     parallel: z.number(),
     subsample: z.number(),
-    question_ids: z.array(z.string()),
+    question_ids: z.array(z.string()).nullable().optional(),
     system_type: z.string(),
     seed: z.number(),
     debug: z.boolean(),
@@ -36,10 +36,8 @@ export const RunDataSchema = z.object({
     metrics: RunMetricsSchema,
     tasks: z.array(TaskDataSchema).min(1), // Must have at least one task
     analysis: RunAnalysisSchema.optional(),
-}).refine(data => data.metrics.num_tasks === data.tasks.length, {
-    message: "Metrics num_tasks must match actual number of tasks",
-    path: ["metrics", "num_tasks"],
 });
+// Removed the strict num_tasks validation - use actual found tasks instead
 
 
 // Type exports (inferred from schemas)
