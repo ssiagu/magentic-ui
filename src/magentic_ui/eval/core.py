@@ -14,6 +14,7 @@ from tqdm import tqdm
 from .basesystem import BaseSystem, load_system_class
 from .benchmark import Benchmark, load_benchmark_class
 from .models import AllCandidateTypes, AllEvalResultTypes
+from .token_usage_tracker import get_global_tracker
 
 
 # ----------------------------------------------------------------------
@@ -206,11 +207,18 @@ def _run_single_task(
                 )
             task.file_dir = os.path.join(question_dir, os.path.basename(file_dir))
 
+        # Clear token tracker for this task
+        tracker = get_global_tracker()
+        tracker.clear()
+        
         start_time = time.time()
         answer = system.get_answer(task_id, task, question_dir)
         end_time = time.time()
 
+        # Save timing and token usage data
         times_path = os.path.join(question_dir, "times.json")
+        token_usage_path = os.path.join(question_dir, "token_usage.json")
+        
         with open(times_path, "w") as f:
             json.dump(
                 {
@@ -220,6 +228,9 @@ def _run_single_task(
                 },
                 f,
             )
+        
+        # Save token usage data
+        tracker.save_to_file(token_usage_path)
 
 
         return task_id, answer, end_time - start_time

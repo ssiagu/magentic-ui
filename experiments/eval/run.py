@@ -14,6 +14,7 @@ from systems.magentic_ui_sim_user_system import MagenticUISimUserSystem
 from systems.magentic_ui_system import MagenticUIAutonomousSystem
 from magentic_ui.eval.benchmarks import WebVoyagerBenchmark
 from magentic_ui.eval.benchmark import Benchmark
+from magentic_ui.eval.token_usage_tracker import wrap_client_with_tracking
 from autogen_core.models import ChatCompletionClient
 
 
@@ -128,12 +129,15 @@ def run_system_evaluation(
                 "max_retries": 10,
             }
         )
+        
+        # Wrap client with token tracking for evaluation
+        wrapped_client = wrap_client_with_tracking(client, "webvoyager_evaluator")
 
         def create_benchmark(data_dir: str = "WebVoyager", name: str = "WebVoyager"):
             benchmark = WebVoyagerBenchmark(
                 data_dir=data_dir,
                 eval_method="gpt_eval",
-                model_client=client,
+                model_client=wrapped_client,
             )
             return benchmark
 

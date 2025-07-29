@@ -16,10 +16,10 @@ from magentic_ui.agents.mcp._config import McpAgentConfig
 from magentic_ui.cli import PrettyConsole
 from magentic_ui.eval.basesystem import BaseSystem
 from magentic_ui.eval.models import BaseCandidate, BaseTask, WebVoyagerCandidate
-from magentic_ui.tools.mcp._aggregate_workbench import NamedMcpServerParams
+from magentic_ui.eval.token_usage_tracker import wrap_client_with_tracking
 from magentic_ui.types import CheckpointEvent
 from PIL import Image
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 logging.getLogger("autogen").setLevel(logging.WARNING)
@@ -59,7 +59,6 @@ You must answer the question and provide a smart guess if you are unsure. Provid
 
 
 class McpAgentAutonomousSystemConfig(McpAgentConfig):
-    mcp_servers: List[NamedMcpServerParams] = Field(default_factory=lambda: [])
     loop_until_task_comlete: bool = True
     max_loops: int = 20
     final_prompt: str | None = FINAL_ANSWER_PROMPT
@@ -117,7 +116,29 @@ class McpAgentAutonomousSystem(BaseSystem):
             messages_so_far: List[LogEventSystem] = []
 
             task_question: str = task.question
+            
+            # Create agent first, then wrap its model client to ensure MCP servers get the wrapped client
             agent = McpAgent._from_config(self.config)  # type: ignore
+            
+            # Now wrap the actual model client that was created
+            original_client = agent._model_client
+            wrapped_client = wrap_client_with_tracking(original_client, f"mcp_agent_{self.config.name}")
+            
+            # Replace the model client in the agent and its workbench
+            agent._model_client = wrapped_client
+            
+            # If the agent has a workbench with its own model client references, update those too
+            if hasattr(agent, '_workbench') and agent._workbench:
+                workbench = agent._workbench
+                
+                # For AggregateMcpWorkbench, update all individual workbenches
+                if hasattr(workbench, '_workbenches'):
+                    for wb in workbench._workbenches.values():
+                        if hasattr(wb, 'set_model_client'):
+                            wb.set_model_client(wrapped_client)
+                        elif hasattr(wb, '_model_client'):
+                            wb._model_client = wrapped_client
+            
             answer: str = ""
 
             # Catch any errors after team is created so we can close it
@@ -146,11 +167,10 @@ class McpAgentAutonomousSystem(BaseSystem):
                         answer = message.messages[-1].to_text()
                     elif not isinstance(message, CheckpointEvent):
                         try:
-                            message_str = message.to_text()
                             # Create log event with source, content and timestamp
                             log_event = LogEventSystem(
                                 source=message.source,
-                                content=message_str,
+                                content=message.model_dump_json(),
                                 timestamp=datetime.datetime.now().isoformat(),
                                 metadata=message.metadata,
                             )
@@ -166,7 +186,7 @@ class McpAgentAutonomousSystem(BaseSystem):
                     f"{output_dir}/{task_id}_messages.json", "w"
                 ) as f:
                     # Convert list of logevent objects to list of dicts
-                    messages_json = [msg.model_dump() for msg in messages_so_far]
+                    messages_json = [msg.model_dump(mode='json') for msg in messages_so_far]
                     await f.write(json.dumps(messages_json, indent=2))
                 # how the final answer is formatted:  "Final Answer: FINAL ANSWER: Actual final answer"
 

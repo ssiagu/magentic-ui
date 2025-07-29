@@ -1,4 +1,4 @@
-import { RunData, FilterOptions, TaskData } from '@/types';
+import { RunData, FilterOptions, TaskData, TokenUsage } from '@/types';
 
 export const formatMessageContent = (content: string): string => {
   // If content starts with '[', wrap it in a <pre> block
@@ -119,4 +119,93 @@ export const generateOutputFilename = (
   const runIdsStr = sortedRunIds.join('_');
   
   return `${suffix}_${safeSystemName}_${dataset}_${split}_runs_${runIdsStr}_${timestamp}.json`;
+};
+
+// Token usage utility functions
+export const computeTotalTokenUsageFromTasks = (tasks: TaskData[]): TokenUsage | null => {
+  const tasksWithTokens = tasks.filter(task => task.tokenUsage);
+  if (tasksWithTokens.length === 0) return null;
+
+  const aggregatedClients: Record<string, any> = {};
+  let grandTotalInput = 0;
+  let grandTotalOutput = 0;
+  let grandTotalTokens = 0;
+  let grandTotalRequests = 0;
+
+  for (const task of tasksWithTokens) {
+    if (!task.tokenUsage) continue;
+    
+    // Aggregate client data
+    for (const [clientName, clientData] of Object.entries(task.tokenUsage.clients)) {
+      if (!aggregatedClients[clientName]) {
+        aggregatedClients[clientName] = {
+          total_input_tokens: 0,
+          total_output_tokens: 0,
+          total_tokens: 0,
+          requests: []
+        };
+      }
+      
+      aggregatedClients[clientName].total_input_tokens += clientData.total_input_tokens;
+      aggregatedClients[clientName].total_output_tokens += clientData.total_output_tokens;
+      aggregatedClients[clientName].total_tokens += clientData.total_tokens;
+      aggregatedClients[clientName].requests.push(...clientData.requests);
+    }
+    
+    // Aggregate grand totals
+    grandTotalInput += task.tokenUsage.grand_total.total_input_tokens;
+    grandTotalOutput += task.tokenUsage.grand_total.total_output_tokens;
+    grandTotalTokens += task.tokenUsage.grand_total.total_tokens;
+    grandTotalRequests += task.tokenUsage.grand_total.total_requests;
+  }
+
+  return {
+    clients: aggregatedClients,
+    grand_total: {
+      total_input_tokens: grandTotalInput,
+      total_output_tokens: grandTotalOutput,
+      total_tokens: grandTotalTokens,
+      total_requests: grandTotalRequests
+    }
+  };
+};
+
+export const computeMeanTokenUsageFromTasks = (tasks: TaskData[]): TokenUsage | null => {
+  const tasksWithTokens = tasks.filter(task => task.tokenUsage);
+  if (tasksWithTokens.length === 0) return null;
+
+  const totalUsage = computeTotalTokenUsageFromTasks(tasks);
+  if (!totalUsage) return null;
+
+  const count = tasksWithTokens.length;
+
+  // Compute mean for each client
+  const meanClients: Record<string, any> = {};
+  for (const [clientName, clientData] of Object.entries(totalUsage.clients)) {
+    meanClients[clientName] = {
+      total_input_tokens: Math.round(clientData.total_input_tokens / count),
+      total_output_tokens: Math.round(clientData.total_output_tokens / count),
+      total_tokens: Math.round(clientData.total_tokens / count),
+      requests: [] // Don't average individual requests
+    };
+  }
+
+  return {
+    clients: meanClients,
+    grand_total: {
+      total_input_tokens: Math.round(totalUsage.grand_total.total_input_tokens / count),
+      total_output_tokens: Math.round(totalUsage.grand_total.total_output_tokens / count),
+      total_tokens: Math.round(totalUsage.grand_total.total_tokens / count),
+      total_requests: Math.round(totalUsage.grand_total.total_requests / count)
+    }
+  };
+};
+
+export const formatTokenCount = (count: number): string => {
+  if (count >= 1000000) {
+    return `${(count / 1000000).toFixed(1)}M`;
+  } else if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}K`;
+  }
+  return count.toString();
 };

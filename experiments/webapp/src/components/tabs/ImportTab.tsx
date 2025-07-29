@@ -9,6 +9,7 @@ import {
     TaskAnswerSchema,
     TaskScoreSchema,
     TaskTimesSchema,
+    TokenUsageSchema,
     RunArgsSchema,
     RunMetricsSchema,
     RunData
@@ -178,6 +179,7 @@ export const ImportTab: React.FC = () => {
             let answer: any = { answer: '', screenshots: [] };
             let messages: any[] = [];
             let times: any = { start_time: Date.now(), end_time: Date.now(), duration: 0 };
+            let tokenUsage: any = null;
 
             // Process all files for this task
             for (const file of files) {
@@ -209,6 +211,9 @@ export const ImportTab: React.FC = () => {
                     } else if (fileName === 'times.json') {
                         const timesData = JSON.parse(content);
                         times = TaskTimesSchema.parse(timesData);
+                    } else if (fileName === 'token_usage.json') {
+                        const tokenUsageData = JSON.parse(content);
+                        tokenUsage = TokenUsageSchema.parse(tokenUsageData);
                     }
                 } catch (error) {
                     console.warn(`Failed to process task file ${fileName} for task ${taskId}:`, error);
@@ -222,7 +227,8 @@ export const ImportTab: React.FC = () => {
                     messages,
                     answer,
                     score,
-                    times
+                    times,
+                    tokenUsage // Optional field, will be undefined if not loaded
                 });
                 tasks.push(taskData);
             } catch (error) {

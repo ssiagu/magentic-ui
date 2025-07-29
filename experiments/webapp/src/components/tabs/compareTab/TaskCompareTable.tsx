@@ -1,6 +1,7 @@
 import { TaskData, RunData } from '@/types';
 import { CheckCircle, XCircle, MessageCircleQuestion, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { formatTokenCount } from '@/utils/dataUtils';
 
 interface TaskCompareTableProps {
   commonTasks: TaskData[];
@@ -61,7 +62,12 @@ export const TaskCompareTable = ({
         return {
           runId: runInfo.run_id,
           score: runTask?.score.score || 0,
-          hasTask: !!runTask
+          hasTask: !!runTask,
+          tokenUsage: {
+            input: runTask?.tokenUsage?.grand_total.total_input_tokens || 0,
+            output: runTask?.tokenUsage?.grand_total.total_output_tokens || 0,
+            total: runTask?.tokenUsage?.grand_total.total_tokens || 0
+          }
         };
       });
 
@@ -201,11 +207,27 @@ export const TaskCompareTable = ({
                 {row.runResults.map((result) => (
                   <td key={result.runId} className="px-4 py-4 whitespace-nowrap text-center">
                     {result.hasTask ? (
-                      <div className="flex items-center justify-center">
+                      <div className="flex flex-col items-center justify-center space-y-1">
                         <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getScoreBadgeClass(result.score)}`}>
                           {getScoreIcon(result.score)}
                           <span className="ml-1">{(result.score * 100).toFixed(0)}%</span>
                         </div>
+                        {result.tokenUsage.total > 0 && (
+                          <div className="flex flex-col items-center justify-center space-y-0.5">
+                            <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                              <span className="font-semibold">In:</span>
+                              <span className="ml-1">{formatTokenCount(result.tokenUsage.input)}</span>
+                            </div>
+                            <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                              <span className="font-semibold">Out:</span>
+                              <span className="ml-1">{formatTokenCount(result.tokenUsage.output)}</span>
+                            </div>
+                            <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200">
+                              <span className="font-semibold">Total:</span>
+                              <span className="ml-1">{formatTokenCount(result.tokenUsage.total)}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="text-gray-400 text-xs">N/A</div>

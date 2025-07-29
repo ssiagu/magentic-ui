@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { RunData } from '../../types/run';
 import { Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { computeTotalTokenUsageFromTasks, formatTokenCount } from '../../utils/dataUtils';
 
 interface RunTableProps {
   runs: RunData[];
@@ -31,7 +32,7 @@ const findModel = (obj: any): (string | undefined) => {
     return undefined;
 }
 
-type SortKey = 'runId' | 'systemType' | 'configName' | 'model' | 'dataset' | 'split' | 'successRate' | 'maxScore' | 'numTasks' | 'avgTime' | 'mode';
+type SortKey = 'runId' | 'systemType' | 'configName' | 'model' | 'dataset' | 'split' | 'successRate' | 'maxScore' | 'numTasks' | 'avgTime' | 'inputTokens' | 'outputTokens' | 'totalTokens' | 'mode';
 type SortDirection = 'asc' | 'desc' | null;
 
 export const RunTable: React.FC<RunTableProps> = ({ runs, onDelete }) => {
@@ -96,6 +97,12 @@ export const RunTable: React.FC<RunTableProps> = ({ runs, onDelete }) => {
                 }
             })();
 
+            // Calculate total token usage for this run
+            const totalTokenUsage = computeTotalTokenUsageFromTasks(run.tasks);
+            const inputTokens = totalTokenUsage ? totalTokenUsage.grand_total.total_input_tokens : 0;
+            const outputTokens = totalTokenUsage ? totalTokenUsage.grand_total.total_output_tokens : 0;
+            const totalTokens = totalTokenUsage ? totalTokenUsage.grand_total.total_tokens : 0;
+
             return {
                 index,
                 runId: args.run_id,
@@ -108,6 +115,9 @@ export const RunTable: React.FC<RunTableProps> = ({ runs, onDelete }) => {
                 maxScore: (metrics.max_score * 100).toFixed(1),
                 numTasks: metrics.num_tasks,
                 avgTime: formatTime(metrics.average_time),
+                inputTokens: formatTokenCount(inputTokens),
+                outputTokens: formatTokenCount(outputTokens),
+                totalTokens: formatTokenCount(totalTokens),
                 mode: args.mode,
                 parallel: args.parallel,
                 seed: args.seed,
@@ -115,7 +125,10 @@ export const RunTable: React.FC<RunTableProps> = ({ runs, onDelete }) => {
                 // Raw values for sorting
                 rawSuccessRate: metrics.mean_score * 100,
                 rawMaxScore: metrics.max_score * 100,
-                rawAvgTime: metrics.average_time
+                rawAvgTime: metrics.average_time,
+                rawInputTokens: inputTokens,
+                rawOutputTokens: outputTokens,
+                rawTotalTokens: totalTokens
             };
         });
 
@@ -166,6 +179,18 @@ export const RunTable: React.FC<RunTableProps> = ({ runs, onDelete }) => {
                     case 'avgTime':
                         aValue = a.rawAvgTime;
                         bValue = b.rawAvgTime;
+                        break;
+                    case 'inputTokens':
+                        aValue = a.rawInputTokens;
+                        bValue = b.rawInputTokens;
+                        break;
+                    case 'outputTokens':
+                        aValue = a.rawOutputTokens;
+                        bValue = b.rawOutputTokens;
+                        break;
+                    case 'totalTokens':
+                        aValue = a.rawTotalTokens;
+                        bValue = b.rawTotalTokens;
                         break;
                     case 'mode':
                         aValue = a.mode.toLowerCase();
@@ -290,6 +315,33 @@ export const RunTable: React.FC<RunTableProps> = ({ runs, onDelete }) => {
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 <button
+                                    onClick={() => handleSort('inputTokens')}
+                                    className="flex items-center space-x-1 hover:text-gray-700 transition-colors"
+                                >
+                                    <span>Input Tokens</span>
+                                    {getSortIcon('inputTokens')}
+                                </button>
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <button
+                                    onClick={() => handleSort('outputTokens')}
+                                    className="flex items-center space-x-1 hover:text-gray-700 transition-colors"
+                                >
+                                    <span>Output Tokens</span>
+                                    {getSortIcon('outputTokens')}
+                                </button>
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <button
+                                    onClick={() => handleSort('totalTokens')}
+                                    className="flex items-center space-x-1 hover:text-gray-700 transition-colors"
+                                >
+                                    <span>Total Tokens</span>
+                                    {getSortIcon('totalTokens')}
+                                </button>
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <button
                                     onClick={() => handleSort('mode')}
                                     className="flex items-center space-x-1 hover:text-gray-700 transition-colors"
                                 >
@@ -347,6 +399,21 @@ export const RunTable: React.FC<RunTableProps> = ({ runs, onDelete }) => {
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                     {row.avgTime}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {row.inputTokens}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        {row.outputTokens}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                        {row.totalTokens}
+                                    </span>
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {row.mode}

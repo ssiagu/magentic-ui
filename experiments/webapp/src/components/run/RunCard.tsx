@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { RunData } from '../../types/run';
 import { RunTaskList } from './RunTaskList';
 import { Trash2 } from 'lucide-react';
+import { computeTotalTokenUsageFromTasks, formatTokenCount } from '../../utils/dataUtils';
 
 interface RunCardProps {
   run: RunData;
@@ -71,6 +72,9 @@ export const RunCard: React.FC<RunCardProps> = ({
     // Calculate success rate
     const successRate = ((metrics.mean_score) * 100).toFixed(1);
 
+    // Calculate token usage
+    const totalTokenUsage = useMemo(() => computeTotalTokenUsageFromTasks(run.tasks), [run.tasks]);
+
     // Format average time
     const formatTime = (seconds: number) => {
         if (seconds < 60) return `${seconds.toFixed(1)}s`;
@@ -138,6 +142,26 @@ export const RunCard: React.FC<RunCardProps> = ({
                         <div className="text-lg font-semibold text-orange-700">{formatTime(metrics.average_time)}</div>
                     </div>
                 </div>
+
+                {/* Token Usage Information */}
+                {totalTokenUsage && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-yellow-50 p-3 rounded-lg">
+                            <div className="text-sm text-gray-600">Total Tokens</div>
+                            <div className="text-lg font-semibold text-yellow-700">{formatTokenCount(totalTokenUsage.grand_total.total_tokens)}</div>
+                            <div className="text-xs text-gray-500">
+                                {formatTokenCount(totalTokenUsage.grand_total.total_input_tokens)} in, {formatTokenCount(totalTokenUsage.grand_total.total_output_tokens)} out
+                            </div>
+                        </div>
+                        <div className="bg-cyan-50 p-3 rounded-lg">
+                            <div className="text-sm text-gray-600">Mean Tokens</div>
+                            <div className="text-lg font-semibold text-cyan-700">
+                                {formatTokenCount(Math.round(totalTokenUsage.grand_total.total_tokens / run.tasks.filter(t => t.tokenUsage).length))}
+                            </div>
+                            <div className="text-xs text-gray-500">per task</div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Configuration Details */}
                 <div className="bg-gray-50 p-3 rounded-lg">
