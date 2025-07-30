@@ -27,13 +27,13 @@ from autogen_core.logging import LLMCallEvent
 from ...task_team import get_task_team
 from ...teams import GroupChat
 from ...types import RunPaths
-from ...magentic_ui_config import MagenticUIConfig
+from ...magentic_ui_config import MagenticUIConfig, ModelClientConfigs
 from ...input_func import InputFuncType
 from ...agents import WebSurfer
 
 from ..datamodel.types import EnvironmentVariable, LLMCallEventMessage, TeamResult
 from ..datamodel.db import Run
-from ..utils.utils import get_modified_files, decompress_state
+from ..utils.utils import get_modified_files
 from ...tools.playwright.browser.utils import get_browser_resource_config
 
 
@@ -215,46 +215,46 @@ class TeamManager:
             if not self.load_from_config:
                 # The settings_config dictionary provides the Model configs in a key `model_configs`
                 # But MagenticUIConfig expects `model_client_configs` so we need to update that here
-                # settings_model_configs: Dict[str, Any] = {}
-                # if "model_configs" in settings_config:
-                #     try:
-                #         settings_model_configs = yaml.safe_load(
-                #             settings_config["model_configs"]
-                #         )
-                #     except Exception as e:
-                #         logger.warning(
-                #             f"Error loading model configs from UI. Using defaults. Inner exception: {e}"
-                #         )
+                settings_model_configs: Dict[str, Any] = {}
+                if "model_configs" in settings_config:
+                    try:
+                        settings_model_configs = yaml.safe_load(
+                            settings_config["model_configs"]
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Error loading model configs from UI. Using defaults. Inner exception: {e}"
+                        )
 
-                # # Use settings_config values if available, otherwise fall back to instance defaults (self.config)
-                # model_client_configs = ModelClientConfigs(
-                #     orchestrator=settings_model_configs.get(
-                #         "orchestrator_client",
-                #         self.config.get("orchestrator_client", None),
-                #     ),
-                #     web_surfer=settings_model_configs.get(
-                #         "web_surfer_client",
-                #         self.config.get("web_surfer_client", None),
-                #     ),
-                #     coder=settings_model_configs.get(
-                #         "coder_client", self.config.get("coder_client", None)
-                #     ),
-                #     file_surfer=settings_model_configs.get(
-                #         "file_surfer_client",
-                #         self.config.get("file_surfer_client", None),
-                #     ),
-                #     action_guard=settings_model_configs.get(
-                #         "action_guard_client",
-                #         self.config.get("action_guard_client", None),
-                #     ),
-                # )
+                # Use settings_config values if available, otherwise fall back to instance defaults (self.config)
+                model_client_configs = ModelClientConfigs(
+                    orchestrator=settings_model_configs.get(
+                        "orchestrator_client",
+                        self.config.get("orchestrator_client", None),
+                    ),
+                    web_surfer=settings_model_configs.get(
+                        "web_surfer_client",
+                        self.config.get("web_surfer_client", None),
+                    ),
+                    coder=settings_model_configs.get(
+                        "coder_client", self.config.get("coder_client", None)
+                    ),
+                    file_surfer=settings_model_configs.get(
+                        "file_surfer_client",
+                        self.config.get("file_surfer_client", None),
+                    ),
+                    action_guard=settings_model_configs.get(
+                        "action_guard_client",
+                        self.config.get("action_guard_client", None),
+                    ),
+                )
 
                 config_params = {
                     # Lowest priority defaults
                     **self.config,  # type: ignore
                     # Provided settings override defaults
                     **settings_config,  # type: ignore,
-                    # "model_client_configs": model_client_configs,
+                    "model_client_configs": model_client_configs,
                     # These must always be set to the values computed above
                     "playwright_port": playwright_port,
                     "novnc_port": novnc_port,
@@ -288,14 +288,20 @@ class TeamManager:
 
                 if state:
                     if isinstance(state, str):
-                        try:
-                            # Try to decompress if it's compressed
-                            state_dict = decompress_state(state)
-                            await self.team.load_state(state_dict)
-                        except Exception:
-                            # If decompression fails, assume it's a regular JSON string
-                            state_dict = json.loads(state)
-                            await self.team.load_state(state_dict)
+                        # Check if the string is empty or whitespace only
+                        if not state.strip():
+                            # Skip loading if state is empty
+                            pass
+                        else:
+                            try:
+                                state_dict = json.loads(state)
+                                await self.team.load_state(state_dict)
+                            except json.JSONDecodeError as json_error:
+                                # Log error and skip loading invalid JSON state
+                                logger.warning(
+                                    f"Warning: Failed to load state - invalid JSON: {json_error}"
+                                )
+
                     else:
                         await self.team.load_state(state)
 

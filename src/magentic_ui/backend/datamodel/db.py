@@ -192,8 +192,16 @@ class Settings(SQLModel, table=True):
     user_id: Optional[str] = None
     version: Optional[str] = "0.0.1"
     config: Union[SettingsConfig, dict[str, Any]] = Field(
-        default_factory=SettingsConfig, sa_column=Column(JSON)
+        default_factory=lambda: SettingsConfig().model_dump(), sa_column=Column(JSON)
     )
+
+    @field_serializer("config")
+    def serialize_config(
+        self, value: Union[SettingsConfig, dict[str, Any]]
+    ) -> dict[str, Any]:
+        if isinstance(value, SettingsConfig):
+            return value.model_dump()
+        return value
 
 
 class Plan(SQLModel, table=True):
