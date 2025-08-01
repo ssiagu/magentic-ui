@@ -2051,8 +2051,10 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
     def from_config(cls, config: WebSurferConfig) -> Self:
         return cls._from_config(config)
 
-    async def save_state(self) -> Mapping[str, Any]:
+    async def save_state(self, save_browser: bool = True) -> Mapping[str, Any]:
         """Save the current state of the WebSurfer.
+        Args:
+            save_browser (bool): Whether to save the browser state. Defaults to True.
 
         Returns:
             A dictionary containing the chat history and browser state
@@ -2066,8 +2068,11 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
             return state.model_dump()
 
         assert self._context is not None
-        # Get the browser state and convert it to a dict
-        browser_state = await save_browser_state(self._context, self._page)
+
+        browser_state = None
+        if save_browser:
+            # Get the browser state and convert it to a dict
+            browser_state = await save_browser_state(self._context, self._page)
 
         # Create and return the WebSurfer state
         state = WebSurferState(
@@ -2076,8 +2081,11 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         )
         return state.model_dump()
 
-    async def load_state(self, state: Mapping[str, Any]) -> None:
-        """Load a previously saved state.
+    async def load_state(
+        self, state: Mapping[str, Any], load_browser: bool = True
+    ) -> None:
+        """
+        Load a previously saved state.
 
         Args:
             state: Dictionary containing the state to load
@@ -2088,8 +2096,8 @@ class WebSurfer(BaseChatAgent, Component[WebSurferConfig]):
         # Update the chat history
         self._chat_history = web_surfer_state.chat_history
 
-        # Load the browser state if it exists
-        if web_surfer_state.browser_state is not None:
+        # Load the browser state if it exists and load_browser is True
+        if load_browser and web_surfer_state.browser_state is not None:
             await self.lazy_init()
             assert self._context is not None
             await load_browser_state(self._context, web_surfer_state.browser_state)
