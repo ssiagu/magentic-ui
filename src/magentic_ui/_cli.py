@@ -135,6 +135,7 @@ async def get_team(
     use_pretty_ui: bool = True,
     run_without_docker: bool = False,
     browser_headless: bool = False,
+    browser_local: bool = False,
     sentinel_tasks: bool = False,
 ) -> None:
     log_debug("=== Starting get_team function ===", debug)
@@ -257,6 +258,7 @@ async def get_team(
         sentinel_tasks=sentinel_tasks,
         run_without_docker=run_without_docker,
         browser_headless=browser_headless,
+        browser_local=browser_local,
     )
     log_debug(
         f"MagenticUIConfig created with planning={cooperative_planning}, execution={autonomous_execution}",
@@ -457,6 +459,13 @@ def main() -> None:
         help="Run browser in headless mode (default: False, browser runs with GUI)",
     )
     parser.add_argument(
+        "--local-browser",
+        dest="browser_local",
+        action="store_true",
+        default=False,
+        help="Run browser locally on your machine instead of in Docker (default: False, uses Docker browser with noVNC)",
+    )
+    parser.add_argument(
         "--debug",
         dest="debug",
         action="store_true",
@@ -627,6 +636,7 @@ def main() -> None:
             f"Console mode: {'Pretty' if args.use_pretty_ui else 'Old'}", args.debug
         )
         log_debug(f"Browser headless: {args.browser_headless}", args.debug)
+        log_debug(f"Browser local: {args.browser_local}", args.debug)
 
     # Validate user proxy type
     log_debug("Validating user proxy type", args.debug)
@@ -826,6 +836,7 @@ def main() -> None:
             mcp_agents=mcp_agents,
             run_without_docker=args.run_without_docker,
             browser_headless=args.browser_headless,
+            browser_local=args.browser_local,
             sentinel_tasks=args.sentinel_tasks,
         )
     )
