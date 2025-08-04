@@ -458,7 +458,111 @@ export class SettingsAPI {
   }
 }
 
+export class MCPHealthAPI {
+  private getBaseUrl(): string {
+    return getServerUrl();
+  }
+
+  private getHeaders(): HeadersInit {
+    return {
+      "Content-Type": "application/json",
+    };
+  }
+
+  async testServerConnection(
+    serverName: string,
+    serverType: string,
+    serverParams: Record<string, any>
+  ): Promise<{
+    server_name: string;
+    is_available: boolean;
+    error_message?: string;
+    tools_available: string[];
+    warning?: string;
+  }> {
+    const requestBody = {
+      server_name: serverName,
+      server_type: serverType,
+      server_params: serverParams,
+    };
+
+    console.log("API Request Body:", JSON.stringify(requestBody, null, 2));
+
+    const response = await fetch(`${this.getBaseUrl()}/mcp_health/quick-test-availability`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("API Error Response:", errorText);
+      throw new Error(`Failed to test server connection: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  async testFullServerConnection(
+    serverName: string,
+    serverType: string,
+    serverParams: Record<string, any>
+  ): Promise<{
+    server_name: string;
+    is_connected: boolean;
+    error_message?: string;
+    tools_available: string[];
+  }> {
+    const requestBody = {
+      server_name: serverName,
+      server_type: serverType,
+      server_params: serverParams,
+    };
+
+    const response = await fetch(`${this.getBaseUrl()}/mcp_health/test-connection`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Full Connection Test - API Error Response:", errorText);
+      throw new Error(`Failed to test full server connection: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  async testCommandExists(
+    command: string,
+    args: string[] = []
+  ): Promise<{
+    command: string;
+    exists: boolean;
+    path?: string;
+    error_message?: string;
+    suggestions: string[];
+  }> {
+    const response = await fetch(`${this.getBaseUrl()}/mcp_health/test-command-exists`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        command: command,
+        args: args,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to test command: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+}
+
 export const teamAPI = new TeamAPI();
 export const sessionAPI = new SessionAPI();
 export const planAPI = new PlanAPI();
 export const settingsAPI = new SettingsAPI();
+export const mcpHealthAPI = new MCPHealthAPI();

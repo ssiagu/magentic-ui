@@ -22,6 +22,7 @@ from .routes import (
     teams,
     validation,
     ws,
+    mcp_health,
 )
 
 # Initialize application
@@ -153,6 +154,13 @@ api.include_router(
     settingsroute.router,
     prefix="/settings",
     tags=["settings"],
+    responses={404: {"description": "Not found"}},
+)
+
+api.include_router(
+    mcp_health.router,
+    prefix="/mcp_health",
+    tags=["mcp_health"],
     responses={404: {"description": "Not found"}},
 )
 

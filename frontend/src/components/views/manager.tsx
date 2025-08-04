@@ -17,6 +17,7 @@ import { getServerUrl } from "../utils";
 import { RunStatus } from "../types/datamodel";
 import ContentHeader from "../contentheader";
 import PlanList from "../features/Plans/PlanList";
+import McpServersList from "../features/McpServers/McpServersList";
 
 interface SessionWebSocket {
   socket: WebSocket;
@@ -515,6 +516,10 @@ export const SessionManager: React.FC = () => {
                 <Spin size="large" tip={"Loading..."} />
               </div>
             )
+          ) : activeSubMenuItem === "mcp_servers" ? (
+            <div className="h-full overflow-hidden pl-4">
+              <McpServersList />
+            </div>
           ) : (
             <div className="h-full overflow-hidden pl-4">
               <PlanList
