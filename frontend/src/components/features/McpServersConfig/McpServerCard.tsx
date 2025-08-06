@@ -7,10 +7,11 @@ const { Title, Text } = Typography;
 interface McpServerCardProps {
   server: MCPServerInfo;
   index: number;
+  onEdit?: (server: MCPServerInfo) => void;
   onDelete?: (server: MCPServerInfo) => void;
 }
 
-const McpServerCard: React.FC<McpServerCardProps> = ({ server, index, onDelete }) => {
+const McpServerCard: React.FC<McpServerCardProps> = ({ server, index, onEdit, onDelete }) => {
   const getServerTypeLabel = (serverType: string) => {
     switch (serverType) {
       case "StdioServerParams":
@@ -53,6 +54,14 @@ const McpServerCard: React.FC<McpServerCardProps> = ({ server, index, onDelete }
 
         {/* Action buttons at the bottom */}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+          <Button
+            type="text"
+            size="small"
+            className="rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+            onClick={() => onEdit?.(server)}
+          >
+            Edit
+          </Button>
           <Button
             type="text"
             size="small"

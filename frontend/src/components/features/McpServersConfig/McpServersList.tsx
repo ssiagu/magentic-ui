@@ -2,11 +2,31 @@ import React, { useEffect, useState } from "react";
 import { settingsAPI } from "../../views/api";
 import { appContext } from "../../../hooks/provider";
 import { MCPAgentConfig } from "../../settings/tabs/agentSettings/mcpAgentsSettings/types";
-import { Typography, Spin, Alert, Empty } from "antd";
+import { Typography, Spin, Alert, Empty, Card, Button } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
 import McpServerCard from "./McpServerCard";
+import McpConfigModal from "./McpConfigModal";
 import { MCPServerInfo } from "./types";
 
 const { Title, Text } = Typography;
+
+// Add MCP Server Card Component
+const AddMcpServerCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <Card
+    className="h-full border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-colors cursor-pointer bg-gray-50 dark:bg-gray-800"
+    onClick={onClick}
+  >
+    <div className="flex flex-col items-center justify-center h-full py-8">
+      <PlusOutlined className="text-4xl text-gray-400 dark:text-gray-500 mb-4" />
+      <Title level={4} className="text-gray-600 dark:text-gray-400 mb-2">
+        Add MCP Server
+      </Title>
+      <Text className="text-gray-500 dark:text-gray-500 text-center">
+        Connect new capabilities to your agent
+      </Text>
+    </div>
+  </Card>
+);
 
 const McpServersList: React.FC = () => {
   const { user } = React.useContext(appContext);
@@ -14,6 +34,8 @@ const McpServersList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [mcpServers, setMcpServers] = useState<MCPServerInfo[]>([]);
   const [settings, setSettings] = useState<any>(null);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [editingServer, setEditingServer] = useState<MCPServerInfo | undefined>();
 
   useEffect(() => {
     const fetchMCPServers = async () => {
@@ -109,6 +131,94 @@ const McpServersList: React.FC = () => {
     }
   };
 
+  const handleEditServer = (server: MCPServerInfo) => {
+    setEditingServer(server);
+    setIsConfigModalOpen(true);
+  };
+
+  const handleCloseConfigModal = () => {
+    setIsConfigModalOpen(false);
+    setEditingServer(undefined);
+  };
+
+  const handleAddServer = () => {
+    setEditingServer(undefined); // Clear any editing state
+    setIsConfigModalOpen(true);
+  };
+
+  const handleSaveServer = async (agentConfig: any) => {
+    if (!user?.email || !settings) {
+      console.error("User not authenticated or settings not loaded");
+      return;
+    }
+
+    try {
+      let updatedAgentConfigs;
+      let logMessage;
+
+      if (editingServer && agentConfig.isEditing) {
+        // Editing existing server - update only the specific server within the agent
+        updatedAgentConfigs = settings.mcp_agent_configs.map((agent: MCPAgentConfig): MCPAgentConfig => {
+          if (agent.name === editingServer.agentName) {
+            // Find and update the specific server within this agent
+            const updatedServers = agent.mcp_servers.map((server: any) => {
+              if (server.server_name === editingServer.serverName) {
+                // Update this server with the new configuration
+                return agentConfig.serverConfig; // The new server config from the form
+              }
+              return server;
+            });
+
+            return {
+              ...agent,
+              name: agentConfig.agentName || agent.name,
+              description: agentConfig.agentDescription || agent.description,
+              mcp_servers: updatedServers
+            };
+          }
+          return agent;
+        });
+        logMessage = `Updated server "${agentConfig.serverConfig.server_name}" in agent "${editingServer.agentName}"`;
+      } else {
+        // Adding new server
+        updatedAgentConfigs = [...(settings.mcp_agent_configs || []), agentConfig];
+        logMessage = `Added new agent "${agentConfig.name}" with server "${agentConfig.mcp_servers[0].server_name}"`;
+      }
+
+      const updatedSettings = {
+        ...settings,
+        mcp_agent_configs: updatedAgentConfigs
+      };
+
+      // Save to database
+      await settingsAPI.updateSettings(user.email, updatedSettings);
+
+      // Update local state
+      setSettings(updatedSettings);
+
+      // Refresh the servers list
+      const newServers: MCPServerInfo[] = [];
+      updatedAgentConfigs.forEach((agent: MCPAgentConfig) => {
+        agent.mcp_servers.forEach((server: any) => {
+          newServers.push({
+            agentName: agent.name,
+            agentDescription: agent.description,
+            serverName: server.server_name,
+            serverType: server.server_params.type,
+            serverParams: server.server_params,
+          });
+        });
+      });
+      setMcpServers(newServers);
+
+      console.log(logMessage);
+      handleCloseConfigModal();
+    } catch (error) {
+      console.error("Failed to save MCP server:", error);
+      setError(error instanceof Error ? error.message : "Failed to save MCP server");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-4">
@@ -142,22 +252,32 @@ const McpServersList: React.FC = () => {
       </Text>
 
       {mcpServers.length === 0 ? (
-        <Empty
-          description="No MCP servers configured"
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AddMcpServerCard onClick={handleAddServer} />
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {mcpServers.map((server, index) => (
+          {mcpServers.map((server, index) => {
+            return (
             <McpServerCard
               key={`${server.agentName}-${server.serverName}-${index}`}
               server={server}
               index={index}
+              onEdit={handleEditServer}
               onDelete={handleDeleteServer}
             />
-          ))}
+          )})}
+          <AddMcpServerCard onClick={handleAddServer} />
         </div>
       )}
+
+      {/* Configuration Modal */}
+      <McpConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={handleCloseConfigModal}
+        server={editingServer}
+        onSave={handleSaveServer}
+      />
     </div>
   );
 };
