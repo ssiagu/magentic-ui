@@ -16,6 +16,9 @@ import {
 import SseServerForm from "./configForms/SseServerForm";
 import StdioServerForm from "./configForms/StdioServerForm";
 import JsonForm from "./configForms/JsonForm";
+import { useDefaultModel } from "../../settings/hooks/useDefaultModel";
+import { ModelConfig } from "../../settings/tabs/agentSettings/modelSelector/modelConfigForms/types";
+import { DEFAULT_OPENAI } from "../../settings/tabs/agentSettings/modelSelector/modelConfigForms/OpenAIModelConfigForm";
 
 const { TextArea } = Input;
 
@@ -48,6 +51,17 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
   const [formAgentName, setFormAgentName] = useState("");
   const [formAgentDescription, setFormAgentDescription] = useState("");
   const [jsonConfig, setJsonConfig] = useState(""); // New state for JSON config
+
+  // Model configuration state
+  const { defaultModel } = useDefaultModel();
+  const [modelClient, setModelClient] = useState<ModelConfig>(DEFAULT_OPENAI);
+
+  // Initialize modelClient with defaultModel when available
+  React.useEffect(() => {
+    if (defaultModel) {
+      setModelClient(defaultModel);
+    }
+  }, [defaultModel]);
 
   // Convert current server config to JSON format
   const convertServerConfigToJson = () => {
@@ -222,15 +236,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
           system_message: "",
           mcp_servers: [serverConfig],
           tool_call_summary_format: "{tool_name}({arguments}): {result}",
-          model_client: {
-            provider: "OpenAIChatCompletionClient",
-            config: {
-              model: "gpt-4.1-2025-04-14",
-              api_key: null,
-              base_url: null,
-              max_retries: 5
-            }
-          }
+          model_client: modelClient
         };
         if (onSave) {
           onSave(agentConfig as any);

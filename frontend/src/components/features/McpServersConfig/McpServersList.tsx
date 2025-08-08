@@ -154,7 +154,6 @@ const McpServersList: React.FC = () => {
 
     try {
       let updatedAgentConfigs;
-      let logMessage;
 
       if (editingServer) {
         // Editing existing server - update only the specific server within the agent
@@ -178,11 +177,9 @@ const McpServersList: React.FC = () => {
           }
           return agent;
         });
-        logMessage = `Updated server "${agentConfig.serverConfig.server_name}" in agent "${editingServer.agentName}"`;
       } else {
         // Adding new server
         updatedAgentConfigs = [...(settings.mcp_agent_configs || []), agentConfig];
-        logMessage = `Added new agent "${agentConfig.name}" with server "${agentConfig.mcp_servers[0].server_name}"`;
       }
 
       const updatedSettings = {
@@ -211,7 +208,6 @@ const McpServersList: React.FC = () => {
       });
       setMcpServers(newServers);
 
-      console.log(logMessage);
       handleCloseConfigModal();
     } catch (error) {
       console.error("Failed to save MCP server:", error);
