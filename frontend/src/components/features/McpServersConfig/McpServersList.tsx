@@ -156,7 +156,7 @@ const McpServersList: React.FC = () => {
       let updatedAgentConfigs;
       let logMessage;
 
-      if (editingServer && agentConfig.isEditing) {
+      if (editingServer) {
         // Editing existing server - update only the specific server within the agent
         updatedAgentConfigs = settings.mcp_agent_configs.map((agent: MCPAgentConfig): MCPAgentConfig => {
           if (agent.name === editingServer.agentName) {
@@ -277,6 +277,7 @@ const McpServersList: React.FC = () => {
         onClose={handleCloseConfigModal}
         server={editingServer}
         onSave={handleSaveServer}
+        existingServerNames={mcpServers.map(server => server.serverName)}
       />
     </div>
   );
