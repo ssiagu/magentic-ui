@@ -146,67 +146,76 @@ const McpServersList: React.FC = () => {
     setIsConfigModalOpen(true);
   };
 
-  const handleSaveServer = async (agentConfig: any) => {
+  // Helper function: Update a specific server within an existing agent
+  const updateServer = (existingAgent: MCPAgentConfig, editingServer: MCPServerInfo, newServerConfig: any): MCPAgentConfig => {
+    const updatedServers = existingAgent.mcp_servers.map((server: any) => {
+      if (server.server_name === editingServer.serverName) {
+        return newServerConfig;
+      }
+      return server;
+    });
+
+    return {
+      ...existingAgent,
+      name: newServerConfig.agentName || existingAgent.name,
+      description: newServerConfig.agentDescription || existingAgent.description,
+      mcp_servers: updatedServers
+    };
+  };
+
+  // Helper function: Build servers list for UI display
+  const buildServersList = (updatedAgents: MCPAgentConfig[]): MCPServerInfo[] => {
+    const serversList: MCPServerInfo[] = [];
+
+    updatedAgents.forEach((existingAgent: MCPAgentConfig) => {
+      existingAgent.mcp_servers.forEach((server: any) => {
+        serversList.push({
+          agentName: existingAgent.name,
+          agentDescription: existingAgent.description,
+          serverName: server.server_name,
+          serverType: server.server_params.type,
+          serverParams: server.server_params,
+        });
+      });
+    });
+
+    return serversList;
+  };
+
+  // Helper function: Edit existing server
+  const editServer = (formData: any, settings: any, editingServer: MCPServerInfo) => {
+    const updatedAgents = settings.mcp_agent_configs.map((existingAgent: MCPAgentConfig) => {
+      if (existingAgent.name === editingServer.agentName) {
+        return updateServer(existingAgent, editingServer, formData.serverConfig);
+      }
+      return existingAgent;
+    });
+
+    return updatedAgents;
+  };
+
+  // Helper function: Add new agent
+  const addAgent = (formData: any, settings: any) => {
+    return [...(settings.mcp_agent_configs || []), formData];
+  };
+
+  const handleSaveServer = async (formData: any) => {
     if (!user?.email || !settings) {
       console.error("User not authenticated or settings not loaded");
       return;
     }
 
     try {
-      let updatedAgentConfigs;
+      const updatedAgents = editingServer
+        ? editServer(formData, settings, editingServer)
+        : addAgent(formData, settings);
 
-      if (editingServer) {
-        // Editing existing server - update only the specific server within the agent
-        updatedAgentConfigs = settings.mcp_agent_configs.map((agent: MCPAgentConfig): MCPAgentConfig => {
-          if (agent.name === editingServer.agentName) {
-            // Find and update the specific server within this agent
-            const updatedServers = agent.mcp_servers.map((server: any) => {
-              if (server.server_name === editingServer.serverName) {
-                // Update this server with the new configuration
-                return agentConfig.serverConfig; // The new server config from the form
-              }
-              return server;
-            });
-
-            return {
-              ...agent,
-              name: agentConfig.agentName || agent.name,
-              description: agentConfig.agentDescription || agent.description,
-              mcp_servers: updatedServers
-            };
-          }
-          return agent;
-        });
-      } else {
-        // Adding new server
-        updatedAgentConfigs = [...(settings.mcp_agent_configs || []), agentConfig];
-      }
-
-      const updatedSettings = {
-        ...settings,
-        mcp_agent_configs: updatedAgentConfigs
-      };
-
-      // Save to database
+      const updatedSettings = { ...settings, mcp_agent_configs: updatedAgents };
       await settingsAPI.updateSettings(user.email, updatedSettings);
-
-      // Update local state
       setSettings(updatedSettings);
 
-      // Refresh the servers list
-      const newServers: MCPServerInfo[] = [];
-      updatedAgentConfigs.forEach((agent: MCPAgentConfig) => {
-        agent.mcp_servers.forEach((server: any) => {
-          newServers.push({
-            agentName: agent.name,
-            agentDescription: agent.description,
-            serverName: server.server_name,
-            serverType: server.server_params.type,
-            serverParams: server.server_params,
-          });
-        });
-      });
-      setMcpServers(newServers);
+      const serversList = buildServersList(updatedSettings.mcp_agent_configs);
+      setMcpServers(serversList);
 
       handleCloseConfigModal();
     } catch (error) {
