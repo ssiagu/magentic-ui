@@ -1,22 +1,22 @@
 import React, { useState } from "react";
-import { Modal, Tabs, Input, Button, Form, message, Divider, Tooltip } from "antd";
+import { Modal, Form, Input, Button, message, Tabs, Tooltip, Divider } from "antd";
 import {
   MCPServerInfo,
   DEFAULT_SSE_PARAMS,
   DEFAULT_STDIO_PARAMS,
   serverNamePattern,
-  isEmpty,
   SseServerParams,
   isSseServerParams,
   StdioServerParams,
   isStdioServerParams,
   NamedMCPServerConfigSchema,
-  validateNamedMCPServerConfig,
-  validateMCPAgentConfig
+  MCPAgentConfigSchema,
+  isEmpty
 } from "./types";
 import SseServerForm from "./configForms/SseServerForm";
 import StdioServerForm from "./configForms/StdioServerForm";
 import JsonForm from "./configForms/JsonForm";
+import { mcpAPI } from "../../views/api";
 import { useDefaultModel } from "../../settings/hooks/useDefaultModel";
 import { ModelConfig } from "../../settings/tabs/agentSettings/modelSelector/modelConfigForms/types";
 import { DEFAULT_OPENAI } from "../../settings/tabs/agentSettings/modelSelector/modelConfigForms/OpenAIModelConfigForm";
@@ -28,8 +28,7 @@ interface McpConfigModalProps {
   onClose: () => void;
   server?: MCPServerInfo;
   onSave?: (server: MCPServerInfo) => void;
-  agentName?: string;
-  agentDescription?: string;
+  onUpdateConnectionStatus?: (serverName: string, connectionStatus: any) => void;
   existingServerNames?: string[];
 }
 
@@ -38,17 +37,17 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
   onClose,
   server,
   onSave,
-  agentName,
-  agentDescription,
+  onUpdateConnectionStatus,
   existingServerNames = [],
 }) => {
   const [activeTab, setActiveTab] = useState("sse");
   const [form] = Form.useForm();
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
 
   // Server configuration state
   const [serverName, setServerName] = useState("");
-  const [serverParams, setServerParams] = useState<SseServerParams | StdioServerParams >(DEFAULT_SSE_PARAMS);
+  const [serverParams, setServerParams] = useState<SseServerParams | StdioServerParams>(DEFAULT_SSE_PARAMS);
   const [formAgentName, setFormAgentName] = useState("");
   const [formAgentDescription, setFormAgentDescription] = useState("");
   const [jsonConfig, setJsonConfig] = useState(""); // New state for JSON config
@@ -57,6 +56,16 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
   const { defaultModel } = useDefaultModel();
   const [modelClient, setModelClient] = useState<ModelConfig>(DEFAULT_OPENAI);
 
+  // Reusable validation utility
+  const validateWithZod = (schema: any, data: any, errorPrefix: string = "Validation"): any => {
+    const result = schema.safeParse(data);
+    if (!result.success) {
+      const errors = result.error.errors.map((err: any) => `${err.path.join('.')}: ${err.message}`).join(', ');
+      throw new Error(`${errorPrefix} failed: ${errors}`);
+    }
+    return result.data;
+  };
+
   // Initialize modelClient with defaultModel when available
   React.useEffect(() => {
     if (defaultModel) {
@@ -64,26 +73,11 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
     }
   }, [defaultModel]);
 
-  // Convert current server config to JSON format
-  const convertServerConfigToJson = () => {
-    return JSON.stringify({
-      server_name: serverName,
-      server_params: serverParams
-    }, null, 2);
-  };
-
   // Parse JSON config and update server state
   const parseJsonConfig = (jsonString: string) => {
     try {
       const parsed = JSON.parse(jsonString);
-      const result = NamedMCPServerConfigSchema.safeParse(parsed);
-
-      if (!result.success) {
-        const errors = result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
-        throw new Error(`Invalid server configuration: ${errors}`);
-      }
-
-      return result.data;
+      return validateWithZod(NamedMCPServerConfigSchema, parsed, "Invalid server configuration");
     } catch (error) {
       throw new Error(`Invalid JSON configuration: ${error instanceof Error ? error.message : 'Invalid JSON format'}`);
     }
@@ -108,7 +102,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
       }
     } else if (newTab === "json") {
       // Convert current config to JSON and populate the form
-      const jsonConfigValue = convertServerConfigToJson();
+      const jsonConfigValue = JSON.stringify(buildServerConfig(), null, 2);
       setJsonConfig(jsonConfigValue);
     } else if (newTab === "stdio" && previousTab !== "json") {
       // Only reset to defaults when switching between SSE and Stdio (not from JSON)
@@ -119,29 +113,31 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
     }
   };
 
-  // Set active tab and pre-fill form when editing
-  React.useEffect(() => {
-    if (server && isOpen) {
-      // Edit existing server
-      const activeTab = server.serverType === "StdioServerParams" ? "stdio" : "sse";
-      setActiveTab(activeTab);
-      setServerName(server.serverName);
-      setServerParams(server.serverParams);
-      setFormAgentName(server.agentName || "");
-      setFormAgentDescription(server.agentDescription || "");
 
-      // Also populate JSON form with current config
-      const jsonConfigValue = convertServerConfigToJson();
-      setJsonConfig(jsonConfigValue);
-    } else if (!server && isOpen) {
-      // Adding new server
-      form.resetFields();
-      setActiveTab("sse");
-      setServerName("");
-      setServerParams(DEFAULT_SSE_PARAMS);
-      setFormAgentName("");
-      setFormAgentDescription("");
-      setJsonConfig(""); // Reset JSON config
+  React.useEffect(() => {
+    if (isOpen) {
+      const activeTab = server?.serverType === "StdioServerParams" ? "stdio" : "sse";
+      setActiveTab(activeTab);
+      setServerName(server?.serverName || "");
+      setServerParams(server?.serverParams || DEFAULT_SSE_PARAMS);
+      setFormAgentName(server?.agentName || "");
+      setFormAgentDescription(server?.agentDescription || "");
+
+      // Set JSON config after state is initialized
+      if (server) {
+        const serverConfig = {
+          server_name: server.serverName,
+          server_params: server.serverParams
+        };
+        setJsonConfig(JSON.stringify(serverConfig, null, 2));
+      } else {
+        setJsonConfig("");
+      }
+
+      // Reset form fields only when adding new server
+      if (!server) {
+        form.resetFields();
+      }
     }
   }, [server, isOpen, form]);
 
@@ -169,38 +165,26 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
     }
 
     // Handle SSE and Stdio tabs
-    if (!serverName) {
-      throw new Error("Server name is required");
-    }
+    const serverConfig = {
+      server_name: serverName,
+      server_params: serverParams
+    };
+
+    // Validate using Zod
+    validateWithZod(NamedMCPServerConfigSchema, serverConfig);
 
     // Check for duplicate server name (only when adding new server, not when editing)
     if (!server && existingServerNames.includes(serverName)) {
       throw new Error("Server name already exists");
     }
 
-    if (activeTab === "sse" && isSseServerParams(serverParams) && !serverParams.url) {
-      throw new Error("URL is required for sse configuration");
-    }
-
-    if (activeTab === "stdio" && isStdioServerParams(serverParams) && !serverParams.command) {
-      throw new Error("Command is required for stdio server configuration");
-    }
-
-    return {
-      server_name: serverName,
-      server_params: serverParams
-    };
+    return serverConfig;
   };
 
   const handleSave = async () => {
     try {
       setIsSaving(true);
       const serverConfig = buildServerConfig();
-
-      const validationErrors = validateNamedMCPServerConfig(serverConfig);
-      if (validationErrors.length > 0) {
-        throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
-      }
 
       if (server) {
         // Editing existing server - return server config and updated agent info
@@ -215,18 +199,15 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
         // Adding new server - create complete agent configuration
         const agentConfig = {
           name: formAgentName || `${serverConfig.server_name}agent`,
-          description: formAgentDescription || agentDescription || `Agent using ${serverConfig.server_name}`, // TODO: automatically generate agent description
+          description: formAgentDescription || `Agent using ${serverConfig.server_name}`, // TODO: automatically generate agent description
           system_message: "",
           mcp_servers: [serverConfig],
           tool_call_summary_format: "{tool_name}({arguments}): {result}",
           model_client: modelClient
         };
 
-        // Validate complete agent configuration
-        const agentValidationErrors = validateMCPAgentConfig(agentConfig);
-        if (agentValidationErrors.length > 0) {
-          throw new Error(`Agent validation failed: ${agentValidationErrors.join(', ')}`);
-        }
+        // Validate complete agent configuration using Zod
+        validateWithZod(MCPAgentConfigSchema, agentConfig, "Agent validation");
 
         if (onSave) {
           onSave(agentConfig as any);
@@ -243,6 +224,49 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
     }
   };
 
+  const handleTestConnection = async () => {
+    let connectionStatus: any = null;
+
+    try {
+      setIsTesting(true);
+      const serverConfig = buildServerConfig();
+
+      // Call backend test endpoint using the API class
+      const result = await mcpAPI.testMcpServer(serverConfig);
+
+      // Prepare connection status to save
+      connectionStatus = {
+        isConnected: result.success,
+        toolsFound: result.success ? result.details?.tools_found : undefined,
+      };
+
+      if (result.success) {
+        message.success(`${result.message} (${result.details?.tools_found || 0} tools found)`);
+      } else {
+        message.error(`${result.message}: ${result.error}`);
+      }
+
+      return connectionStatus;
+    } catch (error) {
+      console.error("Test connection failed:", error);
+      message.error(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      // Save error status
+      connectionStatus = {
+        isConnected: false,
+        toolsFound: undefined,
+      };
+
+      return connectionStatus;
+    } finally {
+      // Update connection status in database if we have a server being edited
+      if (server && onUpdateConnectionStatus && connectionStatus) {
+        onUpdateConnectionStatus(server.serverName, connectionStatus);
+      }
+      setIsTesting(false);
+    }
+  };
+
   const serverNameError = isEmpty(serverName) || !serverNamePattern.test(serverName);
   const serverNameDuplicateError = serverName && existingServerNames.includes(serverName) && (!server || server.serverName !== serverName);
 
@@ -252,6 +276,9 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
       open={isOpen}
       onCancel={onClose}
       footer={[
+        <Button key="test" onClick={handleTestConnection} loading={isTesting}>
+          Test Connection
+        </Button>,
         <Button key="save" type="primary" onClick={handleSave} loading={isSaving}>
           {server ? "Update Server" : "Add Server"}
         </Button>,

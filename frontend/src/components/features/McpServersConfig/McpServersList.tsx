@@ -5,7 +5,7 @@ import { Typography, Spin, Alert, Empty, Card, Button } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import McpServerCard from "./McpServerCard";
 import McpConfigModal from "./McpConfigModal";
-import { MCPAgentConfig, MCPServerInfo, validateNamedMCPServerConfig, validateMCPAgentConfig, NamedMCPServerConfig } from "./types";
+import { MCPAgentConfig, MCPServerInfo, NamedMCPServerConfig, NamedMCPServerConfigSchema, MCPAgentConfigSchema } from "./types";
 
 const { Title, Text } = Typography;
 
@@ -48,6 +48,10 @@ const McpServersList: React.FC = () => {
           serverName: server.server_name,
           serverType: server.server_params.type,
           serverParams: server.server_params,
+          connectionStatus: server.connection_status ? {
+            isConnected: server.connection_status.is_connected,
+            toolsFound: server.connection_status.tools_found,
+          } : undefined,
         });
       });
     });
@@ -191,17 +195,17 @@ const McpServersList: React.FC = () => {
     try {
       // Validate server configuration before saving
       if (formData.serverConfig) {
-        const validationErrors = validateNamedMCPServerConfig(formData.serverConfig);
-        if (validationErrors.length > 0) {
-          throw new Error(`Server validation failed: ${validationErrors.join(', ')}`);
+        const validationResult = NamedMCPServerConfigSchema.safeParse(formData.serverConfig);
+        if (!validationResult.success) {
+          throw new Error(`Server validation failed: ${validationResult.error.errors.map(err => err.message).join(', ')}`);
         }
       }
 
       // Validate complete agent configuration if it's a new agent
       if (!editingServer && formData.name) {
-        const agentValidationErrors = validateMCPAgentConfig(formData);
-        if (agentValidationErrors.length > 0) {
-          throw new Error(`Agent validation failed: ${agentValidationErrors.join(', ')}`);
+        const agentValidationResult = MCPAgentConfigSchema.safeParse(formData);
+        if (!agentValidationResult.success) {
+          throw new Error(`Agent validation failed: ${agentValidationResult.error.errors.map(err => err.message).join(', ')}`);
         }
       }
 
@@ -220,6 +224,46 @@ const McpServersList: React.FC = () => {
     } catch (error) {
       console.error("Failed to save MCP server:", error);
       setError(error instanceof Error ? error.message : "Failed to save MCP server");
+    }
+  };
+
+  const handleUpdateConnectionStatus = async (serverName: string, connectionStatus: any) => {
+    if (!user?.email || !settings) {
+      console.error("User not authenticated or settings not loaded");
+      return;
+    }
+
+    try {
+      // Find the agent that contains this server and update its connection status
+      const updatedAgents = settings.mcp_agent_configs.map((agent: MCPAgentConfig) => {
+        const updatedMcpServers = agent.mcp_servers.map((server: NamedMCPServerConfig) => {
+          if (server.server_name === serverName) {
+            return {
+              ...server,
+              connection_status: {
+                is_connected: connectionStatus.isConnected,
+                tools_found: connectionStatus.toolsFound,
+              },
+            };
+          }
+          return server;
+        });
+
+        return {
+          ...agent,
+          mcp_servers: updatedMcpServers,
+        };
+      });
+
+      const updatedSettings = { ...settings, mcp_agent_configs: updatedAgents };
+      await settingsAPI.updateSettings(user.email, updatedSettings);
+      setSettings(updatedSettings);
+
+      const serversList = extractMcpServers(updatedSettings.mcp_agent_configs);
+      setMcpServers(serversList);
+    } catch (error) {
+      console.error("Failed to update connection status:", error);
+      setError(error instanceof Error ? error.message : "Failed to update connection status");
     }
   };
 
@@ -281,6 +325,7 @@ const McpServersList: React.FC = () => {
         onClose={handleCloseConfigModal}
         server={editingServer}
         onSave={handleSaveServer}
+        onUpdateConnectionStatus={handleUpdateConnectionStatus}
         existingServerNames={mcpServers.map(server => server.serverName)}
       />
     </div>

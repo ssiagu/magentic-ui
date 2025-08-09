@@ -39,6 +39,10 @@ export type MCPServerConfig = z.infer<typeof MCPServerConfigSchema>;
 export const NamedMCPServerConfigSchema = z.object({
     server_name: z.string().regex(SERVER_NAME_PATTERN, "Only letters and numbers are allowed and the name must be a valid python identifier."),
     server_params: MCPServerConfigSchema,
+    connection_status: z.object({
+        is_connected: z.boolean().optional(),
+        tools_found: z.number().optional(),
+    }).optional(),
 });
 
 export type NamedMCPServerConfig = z.infer<typeof NamedMCPServerConfigSchema>;
@@ -62,6 +66,10 @@ export interface MCPServerInfo {
     serverName: string;
     serverType: string;
     serverParams: StdioServerParams | SseServerParams;
+    connectionStatus?: {
+        isConnected?: boolean;
+        toolsFound?: number;
+    };
 }
 
 export const DEFAULT_SSE_PARAMS: SseServerParams = {
@@ -96,7 +104,6 @@ export function isStdioServerParams(params: any): params is StdioServerParams {
 export function isSseServerParams(params: any): params is SseServerParams {
     return params.type === "SseServerParams";
 }
-
 // Validation utility functions
 export function validateMCPServerConfig(config: any): string[] {
     try {
