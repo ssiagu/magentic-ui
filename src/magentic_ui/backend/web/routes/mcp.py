@@ -8,14 +8,17 @@ from autogen_ext.tools.mcp import McpServerParams
 
 router = APIRouter()
 
+
 class TestMCPRequest(BaseModel):
     server_config: Dict[str, Any]  # NamedMCPServerConfig
+
 
 class TestMCPResponse(BaseModel):
     success: bool
     message: str
     details: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+
 
 async def test_mcp_server_connection(server_config: Dict[str, Any]) -> Dict[str, Any]:
     """Test MCP server using existing AggregateMcpWorkbench."""
@@ -24,7 +27,7 @@ async def test_mcp_server_connection(server_config: Dict[str, Any]) -> Dict[str,
         # Convert to NamedMcpServerParams
         named_params = NamedMcpServerParams(
             server_name=server_config["server_name"],
-            server_params=server_config["server_params"]
+            server_params=server_config["server_params"],
         )
 
         # Use existing workbench for testing
@@ -42,14 +45,14 @@ async def test_mcp_server_connection(server_config: Dict[str, Any]) -> Dict[str,
                     "details": {
                         "server_type": server_config["server_params"]["type"],
                         "server_name": server_config["server_name"],
-                        "tools_found": len(tools)
-                    }
+                        "tools_found": len(tools),
+                    },
                 }
             except asyncio.TimeoutError:
                 return {
                     "success": False,
                     "message": "Server connection timed out",
-                    "error": "Connection test timed out after 30 seconds. The server may be unreachable or taking too long to respond."
+                    "error": "Connection test timed out after 30 seconds. The server may be unreachable or taking too long to respond.",
                 }
 
     except ValueError as e:
@@ -57,15 +60,16 @@ async def test_mcp_server_connection(server_config: Dict[str, Any]) -> Dict[str,
         return {
             "success": False,
             "message": "Invalid server configuration",
-            "error": str(e)
+            "error": str(e),
         }
     except Exception as e:
         # Connection or protocol error
         return {
             "success": False,
             "message": "Server connection failed",
-            "error": str(e)
+            "error": str(e),
         }
+
 
 @router.post("/test-mcp-server", response_model=TestMCPResponse)
 async def test_mcp_server(request: TestMCPRequest):
@@ -75,8 +79,4 @@ async def test_mcp_server(request: TestMCPRequest):
         result = await test_mcp_server_connection(request.server_config)
         return TestMCPResponse(**result)
     except Exception as e:
-        return TestMCPResponse(
-            success=False,
-            message="Test failed",
-            error=str(e)
-        )
+        return TestMCPResponse(success=False, message="Test failed", error=str(e))
