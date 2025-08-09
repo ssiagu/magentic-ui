@@ -6,7 +6,6 @@ import ModelSelector, {
 import { DEFAULT_OPENAI } from "./modelSelector/modelConfigForms/OpenAIModelConfigForm";
 import { SettingsTabProps } from "../../types";
 import { ModelConfig } from "./modelSelector/modelConfigForms/types";
-import MCPAgentsSettings from "./mcpAgentsSettings/MCPAgentsSettings";
 import { SwitchChangeEventHandler } from "antd/es/switch";
 import { settingsAPI } from "../../../views/api";
 import { Prism, SyntaxHighlighterProps } from "react-syntax-highlighter";
@@ -172,17 +171,6 @@ const AgentSettingsTab: React.FC<SettingsTabProps> = ({
           )}
         </>
       )}
-
-      <Collapse>
-        <Collapse.Panel key={1} header="Custom Agents">
-          <MCPAgentsSettings
-            config={config}
-            defaultModel={defaultModel}
-            advanced={advanced}
-            handleUpdateConfig={handleUpdateConfig}
-          />
-        </Collapse.Panel>
-      </Collapse>
     </Flex>
   );
 };

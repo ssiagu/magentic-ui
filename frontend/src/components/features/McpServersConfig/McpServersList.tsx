@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { settingsAPI } from "../../views/api";
 import { appContext } from "../../../hooks/provider";
-import { MCPAgentConfig } from "../../settings/tabs/agentSettings/mcpAgentsSettings/types";
 import { Typography, Spin, Alert, Empty, Card, Button } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import McpServerCard from "./McpServerCard";
 import McpConfigModal from "./McpConfigModal";
-import { MCPServerInfo, validateNamedMCPServerConfig, validateMCPAgentConfig } from "./types";
+import { MCPAgentConfig, MCPServerInfo, validateNamedMCPServerConfig, validateMCPAgentConfig, NamedMCPServerConfig } from "./types";
 
 const { Title, Text } = Typography;
 
@@ -37,6 +36,25 @@ const McpServersList: React.FC = () => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<MCPServerInfo | undefined>();
 
+  // Helper function: Extract MCP servers from agent configurations
+  const extractMcpServers = (agents: MCPAgentConfig[]): MCPServerInfo[] => {
+    const serversList: MCPServerInfo[] = [];
+
+    agents.forEach((agent) => {
+      agent.mcp_servers.forEach((server: NamedMCPServerConfig) => {
+        serversList.push({
+          agentName: agent.name,
+          agentDescription: agent.description,
+          serverName: server.server_name,
+          serverType: server.server_params.type,
+          serverParams: server.server_params,
+        });
+      });
+    });
+
+    return serversList;
+  };
+
   useEffect(() => {
     const fetchMCPServers = async () => {
       if (!user?.email) {
@@ -53,23 +71,9 @@ const McpServersList: React.FC = () => {
         const settings = await settingsAPI.getSettings(user.email);
         setSettings(settings);
 
-        // Extract MCP servers from settings
         const mcpAgentConfigs: MCPAgentConfig[] = settings.mcp_agent_configs || [];
 
-        // Flatten all MCP servers from all agents
-        const servers: MCPServerInfo[] = [];
-
-        mcpAgentConfigs.forEach((agent) => {
-          agent.mcp_servers.forEach((server) => {
-            servers.push({
-              agentName: agent.name,
-              agentDescription: agent.description,
-              serverName: server.server_name,
-              serverType: server.server_params.type,
-              serverParams: server.server_params,
-            });
-          });
-        });
+        const servers = extractMcpServers(mcpAgentConfigs);
 
         setMcpServers(servers);
       } catch (err) {
@@ -163,26 +167,6 @@ const McpServersList: React.FC = () => {
     };
   };
 
-  // Helper function: Build servers list for UI display
-  const buildServersList = (updatedAgents: MCPAgentConfig[]): MCPServerInfo[] => {
-    const serversList: MCPServerInfo[] = [];
-
-    updatedAgents.forEach((existingAgent: MCPAgentConfig) => {
-      existingAgent.mcp_servers.forEach((server: any) => {
-        serversList.push({
-          agentName: existingAgent.name,
-          agentDescription: existingAgent.description,
-          serverName: server.server_name,
-          serverType: server.server_params.type,
-          serverParams: server.server_params,
-        });
-      });
-    });
-
-    return serversList;
-  };
-
-  // Helper function: Edit existing server
   const editServer = (formData: any, settings: any, editingServer: MCPServerInfo) => {
     const updatedAgents = settings.mcp_agent_configs.map((existingAgent: MCPAgentConfig) => {
       if (existingAgent.name === editingServer.agentName) {
@@ -194,7 +178,6 @@ const McpServersList: React.FC = () => {
     return updatedAgents;
   };
 
-  // Helper function: Add new agent
   const addAgent = (formData: any, settings: any) => {
     return [...(settings.mcp_agent_configs || []), formData];
   };
@@ -230,7 +213,7 @@ const McpServersList: React.FC = () => {
       await settingsAPI.updateSettings(user.email, updatedSettings);
       setSettings(updatedSettings);
 
-      const serversList = buildServersList(updatedSettings.mcp_agent_configs);
+      const serversList = extractMcpServers(updatedSettings.mcp_agent_configs);
       setMcpServers(serversList);
 
       handleCloseConfigModal();

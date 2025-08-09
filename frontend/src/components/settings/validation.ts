@@ -1,5 +1,5 @@
 import { ModelConfigSchema } from "./tabs/agentSettings/modelSelector/modelConfigForms/types";
-import { MCPAgentConfigSchema } from "./tabs/agentSettings/mcpAgentsSettings/types";
+import { MCPAgentConfigSchema } from "../features/McpServersConfig/types";
 import { GeneralSettingsSchema } from "./types";
 
 export function extractZodErrors(error: any): string[] {

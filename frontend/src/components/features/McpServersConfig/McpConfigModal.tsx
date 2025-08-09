@@ -10,8 +10,6 @@ import {
   isSseServerParams,
   StdioServerParams,
   isStdioServerParams,
-  StdioServerParamsSchema,
-  SseServerParamsSchema,
   NamedMCPServerConfigSchema,
   validateNamedMCPServerConfig,
   validateMCPAgentConfig
