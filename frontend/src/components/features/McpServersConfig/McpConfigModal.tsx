@@ -11,7 +11,10 @@ import {
   StdioServerParams,
   isStdioServerParams,
   StdioServerParamsSchema,
-  SseServerParamsSchema
+  SseServerParamsSchema,
+  NamedMCPServerConfigSchema,
+  validateNamedMCPServerConfig,
+  validateMCPAgentConfig
 } from "./types";
 import SseServerForm from "./configForms/SseServerForm";
 import StdioServerForm from "./configForms/StdioServerForm";
@@ -75,37 +78,14 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
   const parseJsonConfig = (jsonString: string) => {
     try {
       const parsed = JSON.parse(jsonString);
-
-      if (!parsed.server_name) {
-        throw new Error("Missing required field: server_name");
-      }
-
-      if (!parsed.server_params) {
-        throw new Error("Missing required field: server_params");
-      }
-
-      if (!parsed.server_params.type) {
-        throw new Error("Missing required field: server_params.type");
-      }
-
-      if (parsed.server_params.type !== "StdioServerParams" && parsed.server_params.type !== "SseServerParams") {
-        throw new Error("Invalid server type. Must be 'StdioServerParams' or 'SseServerParams'");
-      }
-
-      const serverParamsSchema = parsed.server_params.type === "StdioServerParams" ? StdioServerParamsSchema : SseServerParamsSchema;
-      const result = serverParamsSchema.safeParse(parsed.server_params);
+      const result = NamedMCPServerConfigSchema.safeParse(parsed);
 
       if (!result.success) {
         const errors = result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
-        throw new Error(`Invalid ${parsed.server_params.type}: ${errors}`);
+        throw new Error(`Invalid server configuration: ${errors}`);
       }
 
-      const validatedServerParams: StdioServerParams | SseServerParams = result.data;
-
-      return {
-        server_name: parsed.server_name,
-        server_params: validatedServerParams
-      };
+      return result.data;
     } catch (error) {
       throw new Error(`Invalid JSON configuration: ${error instanceof Error ? error.message : 'Invalid JSON format'}`);
     }
@@ -219,6 +199,11 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
       setIsSaving(true);
       const serverConfig = buildServerConfig();
 
+      const validationErrors = validateNamedMCPServerConfig(serverConfig);
+      if (validationErrors.length > 0) {
+        throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
+      }
+
       if (server) {
         // Editing existing server - return server config and updated agent info
         if (onSave) {
@@ -238,6 +223,13 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
           tool_call_summary_format: "{tool_name}({arguments}): {result}",
           model_client: modelClient
         };
+
+        // Validate complete agent configuration
+        const agentValidationErrors = validateMCPAgentConfig(agentConfig);
+        if (agentValidationErrors.length > 0) {
+          throw new Error(`Agent validation failed: ${agentValidationErrors.join(', ')}`);
+        }
+
         if (onSave) {
           onSave(agentConfig as any);
         }

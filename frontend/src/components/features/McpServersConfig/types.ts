@@ -1,12 +1,9 @@
 import { z } from "zod";
+import { ModelConfigSchema } from "../../settings/tabs/agentSettings/modelSelector/modelConfigForms/types";
+import { extractZodErrors } from "../../settings/validation";
 
-export interface MCPServerInfo {
-    agentName: string;
-    agentDescription: string;
-    serverName: string;
-    serverType: string;
-    serverParams: any;
-}
+// Shared server name pattern - must start with letter, then letters/numbers
+export const SERVER_NAME_PATTERN = /^[A-Za-z]+[A-Za-z0-9]*$/;
 
 export const StdioServerParamsSchema = z.object({
     type: z.literal("StdioServerParams"),
@@ -31,6 +28,41 @@ export const SseServerParamsSchema = z.object({
 
 export type SseServerParams = z.infer<typeof SseServerParamsSchema>
 
+// Zod schema for server configuration validation
+export const MCPServerConfigSchema = z.discriminatedUnion("type", [
+    StdioServerParamsSchema, SseServerParamsSchema
+]);
+
+export type MCPServerConfig = z.infer<typeof MCPServerConfigSchema>;
+
+// Zod schema for named server configuration validation
+export const NamedMCPServerConfigSchema = z.object({
+    server_name: z.string().regex(SERVER_NAME_PATTERN, "Only letters and numbers are allowed and the name must be a valid python identifier."),
+    server_params: MCPServerConfigSchema,
+});
+
+export type NamedMCPServerConfig = z.infer<typeof NamedMCPServerConfigSchema>;
+
+// Zod schema for agent configuration validation
+export const MCPAgentConfigSchema = z.object({
+    name: z.string().regex(/^[a-zA-Z_]+[a-zA-Z0-9_]*/, "Agent name must be a valid python identifier."),
+    description: z.string(),
+    system_message: z.string().optional(),
+    mcp_servers: z.array(NamedMCPServerConfigSchema).min(1, { message: "At least one MCP server is required." }),
+    model_context_token_limit: z.number().optional(),
+    tool_call_summary_format: z.string().optional(),
+    model_client: ModelConfigSchema,
+});
+
+export type MCPAgentConfig = z.infer<typeof MCPAgentConfigSchema>;
+
+export interface MCPServerInfo {
+    agentName: string;
+    agentDescription: string;
+    serverName: string;
+    serverType: string;
+    serverParams: StdioServerParams | SseServerParams;
+}
 
 export const DEFAULT_SSE_PARAMS: SseServerParams = {
     type: "SseServerParams",
@@ -52,7 +84,7 @@ export const MCP_SERVER_TYPES = {
     "SseServerParams": { value: "SseServerParams", label: "SSE", defaultValue: DEFAULT_SSE_PARAMS },
 };
 
-export const serverNamePattern = /^[A-Za-z0-9]+$/;
+export const serverNamePattern = SERVER_NAME_PATTERN;
 
 export const isEmpty = (val: any) => val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0);
 
@@ -63,4 +95,49 @@ export function isStdioServerParams(params: any): params is StdioServerParams {
 
 export function isSseServerParams(params: any): params is SseServerParams {
     return params.type === "SseServerParams";
+}
+
+// Validation utility functions
+export function validateMCPServerConfig(config: any): string[] {
+    try {
+        MCPServerConfigSchema.parse(config);
+        return [];
+    } catch (e) {
+        return extractZodErrors(e);
+    }
+}
+
+export function validateNamedMCPServerConfig(config: any): string[] {
+    try {
+        NamedMCPServerConfigSchema.parse(config);
+        return [];
+    } catch (e) {
+        return extractZodErrors(e);
+    }
+}
+
+export function validateMCPServerInfo(serverInfo: any): string[] {
+    const errors: string[] = [];
+
+    if (!serverInfo.serverName) {
+        errors.push("Server name is required");
+    }
+
+    if (!serverInfo.serverParams) {
+        errors.push("Server parameters are required");
+    } else {
+        const serverConfigErrors = validateMCPServerConfig(serverInfo.serverParams);
+        errors.push(...serverConfigErrors);
+    }
+
+    return errors;
+}
+
+export function validateMCPAgentConfig(config: any): string[] {
+    try {
+        MCPAgentConfigSchema.parse(config);
+        return [];
+    } catch (e) {
+        return extractZodErrors(e);
+    }
 }

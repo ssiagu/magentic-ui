@@ -6,7 +6,7 @@ import { Typography, Spin, Alert, Empty, Card, Button } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import McpServerCard from "./McpServerCard";
 import McpConfigModal from "./McpConfigModal";
-import { MCPServerInfo } from "./types";
+import { MCPServerInfo, validateNamedMCPServerConfig, validateMCPAgentConfig } from "./types";
 
 const { Title, Text } = Typography;
 
@@ -206,6 +206,22 @@ const McpServersList: React.FC = () => {
     }
 
     try {
+      // Validate server configuration before saving
+      if (formData.serverConfig) {
+        const validationErrors = validateNamedMCPServerConfig(formData.serverConfig);
+        if (validationErrors.length > 0) {
+          throw new Error(`Server validation failed: ${validationErrors.join(', ')}`);
+        }
+      }
+
+      // Validate complete agent configuration if it's a new agent
+      if (!editingServer && formData.name) {
+        const agentValidationErrors = validateMCPAgentConfig(formData);
+        if (agentValidationErrors.length > 0) {
+          throw new Error(`Agent validation failed: ${agentValidationErrors.join(', ')}`);
+        }
+      }
+
       const updatedAgents = editingServer
         ? editServer(formData, settings, editingServer)
         : addAgent(formData, settings);
