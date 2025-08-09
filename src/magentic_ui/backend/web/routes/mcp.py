@@ -1,10 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 import asyncio
 
 from magentic_ui.tools.mcp import AggregateMcpWorkbench, NamedMcpServerParams
-from autogen_ext.tools.mcp import McpServerParams
 
 router = APIRouter()
 
