@@ -10,8 +10,10 @@ import {
   StdioServerParams,
   isStdioServerParams,
   NamedMCPServerConfigSchema,
-  MCPAgentConfigSchema,
-  isEmpty
+  isEmpty,
+  validateJsonConfig,
+  validateNamedMCPServerConfig,
+  validateMCPAgentConfig
 } from "./types";
 import SseServerForm from "./configForms/SseServerForm";
 import StdioServerForm from "./configForms/StdioServerForm";
@@ -50,21 +52,11 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
   const [serverParams, setServerParams] = useState<SseServerParams | StdioServerParams>(DEFAULT_SSE_PARAMS);
   const [formAgentName, setFormAgentName] = useState("");
   const [formAgentDescription, setFormAgentDescription] = useState("");
-  const [jsonConfig, setJsonConfig] = useState(""); // New state for JSON config
+  const [jsonConfig, setJsonConfig] = useState("");
 
   // Model configuration state
   const { defaultModel } = useDefaultModel();
   const [modelClient, setModelClient] = useState<ModelConfig>(DEFAULT_OPENAI);
-
-  // Reusable validation utility
-  const validateWithZod = (schema: any, data: any, errorPrefix: string = "Validation"): any => {
-    const result = schema.safeParse(data);
-    if (!result.success) {
-      const errors = result.error.errors.map((err: any) => `${err.path.join('.')}: ${err.message}`).join(', ');
-      throw new Error(`${errorPrefix} failed: ${errors}`);
-    }
-    return result.data;
-  };
 
   // Initialize modelClient with defaultModel when available
   React.useEffect(() => {
@@ -72,16 +64,6 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
       setModelClient(defaultModel);
     }
   }, [defaultModel]);
-
-  // Parse JSON config and update server state
-  const parseJsonConfig = (jsonString: string) => {
-    try {
-      const parsed = JSON.parse(jsonString);
-      return validateWithZod(NamedMCPServerConfigSchema, parsed, "Invalid server configuration");
-    } catch (error) {
-      throw new Error(`Invalid JSON configuration: ${error instanceof Error ? error.message : 'Invalid JSON format'}`);
-    }
-  };
 
   // Set server type when tab changes
   const handleTabChange = (newTab: string) => {
@@ -92,7 +74,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
       // Parse JSON config when switching from JSON to other tabs
       try {
         if (jsonConfig) {
-          const parsed = parseJsonConfig(jsonConfig);
+          const parsed = validateJsonConfig(jsonConfig, NamedMCPServerConfigSchema, "Invalid server configuration");
           setServerName(parsed.server_name);
           setServerParams(parsed.server_params);
         }
@@ -101,18 +83,14 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
         // Keep the current config if JSON parsing fails
       }
     } else if (newTab === "json") {
-      // Convert current config to JSON and populate the form
       const jsonConfigValue = JSON.stringify(buildServerConfig(), null, 2);
       setJsonConfig(jsonConfigValue);
     } else if (newTab === "stdio" && previousTab !== "json") {
-      // Only reset to defaults when switching between SSE and Stdio (not from JSON)
       setServerParams(DEFAULT_STDIO_PARAMS);
     } else if (newTab === "sse" && previousTab !== "json") {
-      // Only reset to defaults when switching between SSE and Stdio (not from JSON)
       setServerParams(DEFAULT_SSE_PARAMS);
     }
   };
-
 
   React.useEffect(() => {
     if (isOpen) {
@@ -148,7 +126,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
           throw new Error("JSON configuration is required");
         }
 
-        const parsed = parseJsonConfig(jsonConfig);
+        const parsed = validateJsonConfig(jsonConfig, NamedMCPServerConfigSchema, "Invalid server configuration");
 
         // Check for duplicate server name (only when adding new server, not when editing)
         if (!server && existingServerNames.includes(parsed.server_name)) {
@@ -170,8 +148,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
       server_params: serverParams
     };
 
-    // Validate using Zod
-    validateWithZod(NamedMCPServerConfigSchema, serverConfig);
+    validateNamedMCPServerConfig(serverConfig);
 
     // Check for duplicate server name (only when adding new server, not when editing)
     if (!server && existingServerNames.includes(serverName)) {
@@ -207,7 +184,7 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
         };
 
         // Validate complete agent configuration using Zod
-        validateWithZod(MCPAgentConfigSchema, agentConfig, "Agent validation");
+        validateMCPAgentConfig(agentConfig);
 
         if (onSave) {
           onSave(agentConfig as any);

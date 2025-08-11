@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { ModelConfigSchema } from "../../settings/tabs/agentSettings/modelSelector/modelConfigForms/types";
-import { extractZodErrors } from "../../settings/validation";
 
 // Shared server name pattern - must start with letter, then letters/numbers
 export const SERVER_NAME_PATTERN = /^[A-Za-z]+[A-Za-z0-9]*$/;
@@ -104,47 +103,36 @@ export function isStdioServerParams(params: any): params is StdioServerParams {
 export function isSseServerParams(params: any): params is SseServerParams {
   return params.type === "SseServerParams";
 }
+
+// Generic validation utility function
+export function validateWithZod(schema: any, data: any, errorPrefix: string = "Validation"): any {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const errors = result.error.errors.map((err: any) => `${err.path.join('.')}: ${err.message}`).join(', ');
+    throw new Error(`${errorPrefix} failed: ${errors}`);
+  }
+  return result.data;
+}
+
+// JSON validation utility function
+export function validateJsonConfig(jsonString: string, schema: any, errorPrefix: string = "Invalid configuration"): any {
+  try {
+    const parsed = JSON.parse(jsonString);
+    return validateWithZod(schema, parsed, errorPrefix);
+  } catch (error) {
+    throw new Error(`${errorPrefix}: ${error instanceof Error ? error.message : 'Invalid JSON format'}`);
+  }
+}
+
 // Validation utility functions
-export function validateMCPServerConfig(config: any): string[] {
-  try {
-    MCPServerConfigSchema.parse(config);
-    return [];
-  } catch (e) {
-    return extractZodErrors(e);
-  }
+export function validateMCPServerConfig(config: any): any {
+  return validateWithZod(MCPServerConfigSchema, config, "MCP Server Config");
 }
 
-export function validateNamedMCPServerConfig(config: any): string[] {
-  try {
-    NamedMCPServerConfigSchema.parse(config);
-    return [];
-  } catch (e) {
-    return extractZodErrors(e);
-  }
+export function validateNamedMCPServerConfig(config: any): any {
+  return validateWithZod(NamedMCPServerConfigSchema, config, "Named MCP Server Config");
 }
 
-export function validateMCPServerInfo(serverInfo: any): string[] {
-  const errors: string[] = [];
-
-  if (!serverInfo.serverName) {
-    errors.push("Server name is required");
-  }
-
-  if (!serverInfo.serverParams) {
-    errors.push("Server parameters are required");
-  } else {
-    const serverConfigErrors = validateMCPServerConfig(serverInfo.serverParams);
-    errors.push(...serverConfigErrors);
-  }
-
-  return errors;
-}
-
-export function validateMCPAgentConfig(config: any): string[] {
-  try {
-    MCPAgentConfigSchema.parse(config);
-    return [];
-  } catch (e) {
-    return extractZodErrors(e);
-  }
+export function validateMCPAgentConfig(config: any): any {
+  return validateWithZod(MCPAgentConfigSchema, config, "MCP Agent Config");
 }
