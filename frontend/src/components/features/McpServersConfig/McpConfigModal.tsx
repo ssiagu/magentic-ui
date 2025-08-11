@@ -83,8 +83,13 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
         // Keep the current config if JSON parsing fails
       }
     } else if (newTab === "json") {
-      const jsonConfigValue = JSON.stringify(buildServerConfig(), null, 2);
-      setJsonConfig(jsonConfigValue);
+      if (server) {
+        // Editing existing server - validate and show current config
+        const jsonConfigValue = JSON.stringify(buildServerConfig(), null, 2);
+        setJsonConfig(jsonConfigValue);
+      } else {
+        setJsonConfig("");
+      }
     } else if (newTab === "stdio" && previousTab !== "json") {
       setServerParams(DEFAULT_STDIO_PARAMS);
     } else if (newTab === "sse" && previousTab !== "json") {
@@ -121,28 +126,11 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
 
   const buildServerConfig = () => {
     if (activeTab === "json") {
-      try {
-        if (!jsonConfig) {
-          throw new Error("JSON configuration is required");
-        }
-
-        const parsed = validateJsonConfig(jsonConfig, NamedMCPServerConfigSchema, "Invalid server configuration");
-
-        // Check for duplicate server name (only when adding new server, not when editing)
-        if (!server && existingServerNames.includes(parsed.server_name)) {
-          throw new Error("Server name already exists");
-        }
-
-        return {
-          server_name: parsed.server_name,
-          server_params: parsed.server_params
-        };
-      } catch (error) {
-        throw new Error(error instanceof Error ? error.message : "Invalid JSON configuration");
-      }
+      const parsed = validateJsonConfig(jsonConfig, NamedMCPServerConfigSchema, "Invalid server configuration");
+      setServerName(parsed.server_name);
+      setServerParams(parsed.server_params);
     }
 
-    // Handle SSE and Stdio tabs
     const serverConfig = {
       server_name: serverName,
       server_params: serverParams
@@ -162,7 +150,6 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
     try {
       setIsSaving(true);
       const serverConfig = buildServerConfig();
-
       if (server) {
         // Editing existing server - return server config and updated agent info
         if (onSave) {
