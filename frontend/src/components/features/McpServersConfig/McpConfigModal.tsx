@@ -125,15 +125,21 @@ const McpConfigModal: React.FC<McpConfigModalProps> = ({
   }, [server, isOpen, form]);
 
   const buildServerConfig = () => {
+    let localServerName;
+    let localServerParams;
+
     if (activeTab === "json") {
       const parsed = validateJsonConfig(jsonConfig, NamedMCPServerConfigSchema, "Invalid server configuration");
-      setServerName(parsed.server_name);
-      setServerParams(parsed.server_params);
+      localServerName = parsed.server_name;
+      localServerParams = parsed.server_params;
+    } else {
+      localServerName = serverName;
+      localServerParams = serverParams;
     }
 
     const serverConfig = {
-      server_name: serverName,
-      server_params: serverParams
+      server_name: localServerName,
+      server_params: localServerParams
     };
 
     validateNamedMCPServerConfig(serverConfig);
