@@ -1391,6 +1391,7 @@ class Orchestrator(BaseGroupChatManager):
                 # Check if condition is met
                 condition_met = None
                 reason = None
+                suggested_sleep_duration = step.sleep_duration
                 # For integer condition, check if we've reached the required iterations
                 if isinstance(step.condition, int):
                     condition_met = iteration >= step.condition
@@ -1415,6 +1416,7 @@ class Orchestrator(BaseGroupChatManager):
                         content=ORCHESTRATOR_SENTINEL_CONDITION_CHECK_PROMPT.format(
                             step_description=step_description,
                             condition=step.condition,
+                            current_sleep_duration=step.sleep_duration,
                         ),
                         source=self._name,
                     )
@@ -1429,6 +1431,7 @@ class Orchestrator(BaseGroupChatManager):
                     assert isinstance(response_json, dict)
                     condition_met = response_json.get("condition_met", None)
                     reason = response_json.get("reason", None)
+                    suggested_sleep_duration = response_json.get("sleep_duration", step.sleep_duration)
                 # If condition met, return to complete the step
 
                 if condition_met:
@@ -1448,10 +1451,10 @@ class Orchestrator(BaseGroupChatManager):
                 else:
                     # Sleep before the next check
                     await self._log_message_agentchat(
-                        f"(Check #{iteration}) Condition not satisfied: {reason} \n Sleeping for {step.sleep_duration}s before next check.",
+                        f"(Check #{iteration}) Condition not satisfied: {reason} \n Sleeping for {suggested_sleep_duration}s before next check.",
                         metadata={"internal": "no", "type": "sentinel_sleep"},
                     )
-                    await asyncio.sleep(step.sleep_duration)
+                    await asyncio.sleep(suggested_sleep_duration)
 
             # exception
             except asyncio.CancelledError:
