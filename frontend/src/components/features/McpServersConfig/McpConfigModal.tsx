@@ -1,16 +1,27 @@
 import React, { useState } from "react";
 import { Modal, Form, Input, Button, message, Tabs, Tooltip, Divider } from "antd";
 import {
+  // Types
   MCPServerInfo,
+  SseServerParams,
+  StdioServerParams,
+
+  // Constants
   DEFAULT_SSE_PARAMS,
   DEFAULT_STDIO_PARAMS,
   serverNamePattern,
-  SseServerParams,
+
+  // Type guards
   isSseServerParams,
-  StdioServerParams,
   isStdioServerParams,
+
+  // Schemas
   NamedMCPServerConfigSchema,
+
+  // Utility functions
   isEmpty,
+
+  // Validation functions
   validateJsonConfig,
   validateNamedMCPServerConfig,
   validateMCPAgentConfig
