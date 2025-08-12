@@ -155,18 +155,18 @@ const McpServersList: React.FC = () => {
   };
 
   // Helper function: Update a specific server within an existing agent
-  const updateServer = (existingAgent: MCPAgentConfig, editingServer: MCPServerInfo, newServerConfig: any): MCPAgentConfig => {
+  const updateServer = (existingAgent: MCPAgentConfig, editingServer: MCPServerInfo, formData: any): MCPAgentConfig => {
     const updatedServers = existingAgent.mcp_servers.map((server: any) => {
       if (server.server_name === editingServer.serverName) {
-        return newServerConfig;
+        return formData.serverConfig;
       }
       return server;
     });
 
     return {
       ...existingAgent,
-      name: newServerConfig.agentName || existingAgent.name,
-      description: newServerConfig.agentDescription || existingAgent.description,
+      name: formData.agentName || existingAgent.name,
+      description: formData.agentDescription || existingAgent.description,
       mcp_servers: updatedServers
     };
   };
@@ -174,7 +174,7 @@ const McpServersList: React.FC = () => {
   const editServer = (formData: any, settings: any, editingServer: MCPServerInfo) => {
     const updatedAgents = settings.mcp_agent_configs.map((existingAgent: MCPAgentConfig) => {
       if (existingAgent.name === editingServer.agentName) {
-        return updateServer(existingAgent, editingServer, formData.serverConfig);
+        return updateServer(existingAgent, editingServer, formData);
       }
       return existingAgent;
     });
