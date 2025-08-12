@@ -17,9 +17,9 @@ const AddMcpServerCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
   >
     <div className="flex flex-col items-center justify-center h-full py-8">
       <PlusOutlined className="text-4xl text-gray-400 dark:text-gray-500 mb-4" />
-      <Title level={4} className="text-gray-600 dark:text-gray-400 mb-2">
+      <div className="text-lg font-semibold text-gray-900 mb-2">
         Add MCP Server
-      </Title>
+      </div>
       <Text className="text-gray-500 dark:text-gray-500 text-center">
         Connect new capabilities to your agent
       </Text>
