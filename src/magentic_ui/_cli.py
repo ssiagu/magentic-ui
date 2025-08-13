@@ -1,4 +1,3 @@
-import argparse
 import asyncio
 import json
 import logging
@@ -585,7 +584,7 @@ def cli_main(
 ) -> None:
     """
     Magentic-UI CLI: A command-line interface for multi-agent task execution.
-    
+
     Run tasks using a team of AI agents with web browsing, coding, and file manipulation capabilities.
     """
     log_debug(f"Command line arguments parsed: debug={debug}", debug)
@@ -604,9 +603,7 @@ def cli_main(
         log_debug(f"User proxy type: {user_proxy_type}", debug)
         log_debug(f"LLM log directory: {llmlog_dir}", debug)
         log_debug(f"Sentinel tasks: {sentinel_tasks}", debug)
-        log_debug(
-            f"Console mode: {'Pretty' if use_pretty_ui else 'Old'}", debug
-        )
+        log_debug(f"Console mode: {'Pretty' if use_pretty_ui else 'Old'}", debug)
         log_debug(f"Browser headless: {browser_headless}", debug)
         log_debug(f"Browser local: {browser_local}", debug)
 
@@ -664,7 +661,8 @@ def cli_main(
             log_debug("Reading task from stdin", debug)
             processed_task = sys.stdin.buffer.read().decode("utf-8")
             log_debug(
-                f"Task read from stdin, length: {len(processed_task if processed_task else '')}", debug
+                f"Task read from stdin, length: {len(processed_task if processed_task else '')}",
+                debug,
             )
         elif os.path.isfile(task):
             log_debug(f"Reading task from file: {task}", debug)
@@ -678,7 +676,8 @@ def cli_main(
             log_debug("Using task from command line argument", debug)
             processed_task = task
             log_debug(
-                f"Task from argument, length: {len(processed_task if processed_task else '')}", debug
+                f"Task from argument, length: {len(processed_task if processed_task else '')}",
+                debug,
             )
 
     if not run_without_docker:
@@ -733,9 +732,7 @@ def cli_main(
                     debug,
                 )
         else:
-            log_debug(
-                "Using final answer prompt from command line argument", debug
-            )
+            log_debug("Using final answer prompt from command line argument", debug)
             processed_final_answer_prompt = final_answer_prompt
             log_debug(
                 f"Final answer prompt from argument, length: {len(processed_final_answer_prompt if processed_final_answer_prompt else '')}",

@@ -1431,7 +1431,9 @@ class Orchestrator(BaseGroupChatManager):
                     assert isinstance(response_json, dict)
                     condition_met = response_json.get("condition_met", None)
                     reason = response_json.get("reason", None)
-                    suggested_sleep_duration = response_json.get("sleep_duration", step.sleep_duration)
+                    suggested_sleep_duration = response_json.get(
+                        "sleep_duration", step.sleep_duration
+                    )
                 # If condition met, return to complete the step
 
                 if condition_met:
