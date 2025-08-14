@@ -63,6 +63,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         endpoint_config_file_surfer (Optional[Dict]): FileSurfer agent model client config.
         dataset_name (str): Name of the evaluation dataset (e.g., "Gaia").
         use_local_browser (bool): If True, use the local browser.
+        sentinel_tasks (bool): If True, enable sentinel tasks functionality in the orchestrator.
     """
 
     def __init__(
@@ -75,6 +76,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         dataset_name: str = "Gaia",
         web_surfer_only: bool = False,
         use_local_browser: bool = False,
+        sentinel_tasks: bool = False,
     ):
         super().__init__(name)
         self.candidate_class = WebVoyagerCandidate
@@ -85,6 +87,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
         self.web_surfer_only = web_surfer_only
         self.dataset_name = dataset_name
         self.use_local_browser = use_local_browser
+        self.sentinel_tasks = sentinel_tasks
 
     def get_answer(
         self, task_id: str, task: BaseTask, output_dir: str
@@ -141,6 +144,7 @@ class MagenticUIAutonomousSystem(BaseSystem):
                 final_answer_prompt=FINAL_ANSWER_PROMPT,
                 model_context_token_limit=model_context_token_limit,
                 no_overwrite_of_task=True,
+                sentinel_tasks=self.sentinel_tasks,
             )
 
             model_client_orch = ChatCompletionClient.load_component(
@@ -158,7 +162,8 @@ class MagenticUIAutonomousSystem(BaseSystem):
 
             # launch the browser
             if self.use_local_browser:
-                browser = LocalPlaywrightBrowser(headless=True)
+                browser = LocalPlaywrightBrowser(
+                    headless=False)
             else:
                 playwright_port, socket = get_available_port()
                 novnc_port, socket_vnc = get_available_port()
