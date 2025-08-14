@@ -243,15 +243,26 @@ def download_and_load_benchmark(
 
     if callable(benchmark_constructor):
         data_dir = os.path.join(benchmark_dir, "data", benchmark_name)
+        benchmark = benchmark_constructor(name=benchmark_name, data_dir=data_dir)
+        
+        # Check if we need to download the dataset
+        needs_download = False
         if not os.path.exists(data_dir):
+            needs_download = True
+        else:
+            # For WebGames, check if test.jsonl exists
+            if benchmark_name == "WebGames":
+                test_file = os.path.join(data_dir, "test.jsonl")
+                if not os.path.isfile(test_file):
+                    needs_download = True
+        
+        if needs_download:
             logger.info(f"Benchmark data not found in {data_dir}. Downloading...")
             os.makedirs(data_dir, exist_ok=True)
-            benchmark = benchmark_constructor(name=benchmark_name, data_dir=data_dir)
             logger.info(f"Downloading benchmark {benchmark_name} into {data_dir}...")
             benchmark.download_dataset()
             logger.info("Download complete.")
-        else:
-            benchmark = benchmark_constructor(name=benchmark_name, data_dir=data_dir)
+            
         benchmark.load_dataset()
         return benchmark
     else:
