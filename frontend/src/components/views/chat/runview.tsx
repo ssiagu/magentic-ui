@@ -583,7 +583,7 @@ const RunView: React.FC<RunViewProps> = ({
           !isDetailViewerMinimized
             ? detailViewerExpanded
               ? "w-0"
-              : "w-[40%]"
+              : "w-[50%]"
             : "w-full"
         } transition-all duration-300`}
       >
@@ -634,6 +634,7 @@ const RunView: React.FC<RunViewProps> = ({
                       isLatestPlan ? handleRegeneratePlan : undefined
                     }
                     forceCollapsed={shouldForceCollapse}
+                    allMessages={localMessages}
                   />
                 </div>
               );
@@ -721,7 +722,7 @@ const RunView: React.FC<RunViewProps> = ({
         !isDetailViewerMinimized && (
           <div
             className={`${
-              detailViewerExpanded ? "w-full" : "w-[60%]"
+              detailViewerExpanded ? "w-full" : "w-[50%]"
             } self-start sticky top-0 h-full`}
           >
             <div className="h-full flex-1">
