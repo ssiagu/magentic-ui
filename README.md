@@ -193,6 +193,87 @@ Once the server is running, you can access the UI at <http://localhost:8081>.
 
 #### Model Client Configuration
 
+Magentic-UI supports OpenAI, Azure OpenAI, Ollama, and **智谱AI (ZhipuAI)** as model providers. You can configure them either in the UI (settings icon in top right) or via a YAML configuration file.
+
+##### Using 智谱AI (ZhipuAI)
+
+智谱AI is fully compatible with OpenAI API and offers excellent Chinese language understanding at competitive prices.
+
+**Quick Start with 智谱AI:**
+
+1. Set your API key:
+```bash
+export ZHIPUAI_API_KEY=your-zhipuai-api-key
+```
+
+2. Start Magentic-UI:
+```bash
+magentic-ui --port 8081
+```
+
+3. In the UI, go to Settings → Agent Settings → Select "glm-4.6" preset
+
+**Configuration File Example:**
+
+```yaml
+# Using 智谱AI for all agents
+zhipuai_client: &zhipuai_client
+  provider: OpenAIChatCompletionClient
+  config:
+    base_url: https://open.bigmodel.cn/api/paas/v4/
+    api_key: ${ZHIPUAI_API_KEY}
+    max_retries: 10
+
+orchestrator_client:
+  <<: *zhipuai_client
+  config:
+    <<: *zhipuai_client.config
+    model: glm-4.6
+    temperature: 0.7
+
+web_surfer_client:
+  <<: *zhipuai_client
+  config:
+    <<: *zhipuai_client.config
+    model: glm-4.6
+
+coder_client:
+  <<: *zhipuai_client
+  config:
+    <<: *zhipuai_client.config
+    model: glm-4.6
+    temperature: 0.3
+
+file_surfer_client:
+  <<: *zhipuai_client
+  config:
+    <<: *zhipuai_client.config
+    model: glm-4.5-air
+
+action_guard_client:
+  <<: *zhipuai_client
+  config:
+    <<: *zhipuai_client.config
+    model: glm-4-flash
+    temperature: 0.1
+
+plan_learning_client:
+  <<: *zhipuai_client
+  config:
+    <<: *zhipuai_client.config
+    model: glm-4.6
+```
+
+**Available 智谱AI Models:**
+- `glm-4.6`: Most powerful model for complex reasoning
+- `glm-4.5-air`: Balanced performance and cost
+- `glm-4-flash`: Fast response for lightweight tasks
+- `glm-4.5v`: Vision model for image understanding
+
+**For detailed 智谱AI configuration, see:** [`docs/qoder/zhipuai-user-guide.md`](docs/qoder/zhipuai-user-guide.md)
+
+##### Using OpenAI or Azure OpenAI
+
 If you want to use a different OpenAI key, or if you want to configure use with Azure OpenAI or Ollama, you can do so inside the UI by navigating to settings (top right icon) and changing model configuration. Another option is to pass a yaml config file when you start Magentic-UI which will override any settings in the UI:
 
 ```bash

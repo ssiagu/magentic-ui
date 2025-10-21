@@ -77,11 +77,33 @@ export const OpenAIModelConfigForm: React.FC<ModelConfigFormProps> = ({ onChange
         </Form.Item>
         <Collapse style={{ width: "100%" }}>
           <Collapse.Panel key="1" header="Optional Properties">
-            <Form.Item label="API Key" name={["config", "api_key"]} rules={[{ required: false, message: "Please enter your OpenAI API key" }]}>
-              <Input />
+            <Form.Item 
+              label="API Key" 
+              name={["config", "api_key"]} 
+              tooltip={
+                <div>
+                  <div>支持环境变量:</div>
+                  <div>• OPENAI_API_KEY (OpenAI)</div>
+                  <div>• ZHIPUAI_API_KEY (智谱AI)</div>
+                </div>
+              }
+              rules={[{ required: false, message: "Please enter your API key" }]}
+            >
+              <Input.Password placeholder="从环境变量读取或手动输入" allowClear />
             </Form.Item>
-            <Form.Item label="Base URL" name={["config", "base_url"]} rules={[{ required: false, message: "Please enter your Base URL" }]}>
-              <Input />
+            <Form.Item 
+              label="Base URL" 
+              name={["config", "base_url"]} 
+              tooltip={
+                <div>
+                  <div>OpenAI: https://api.openai.com/v1</div>
+                  <div>智谱AI: https://open.bigmodel.cn/api/paas/v4/</div>
+                  <div>OpenRouter: https://openrouter.ai/api/v1</div>
+                </div>
+              }
+              rules={[{ required: false, message: "Please enter your Base URL" }]}
+            >
+              <Input placeholder="https://open.bigmodel.cn/api/paas/v4/" allowClear />
             </Form.Item>
             <Form.Item label="Max Retries" name={["config", "max_retries"]} rules={[{ type: "number", min: 1, max: 20, message: "Enter a value between 1 and 20" }]}>
               <Input type="number" />

@@ -137,6 +137,59 @@ export const PROVIDER_FORM_MAP: Record<string, { label: string, defaultValue: Mo
             multiple_system_messages: false,
           }
         }
+      },
+      // 智谱AI预设
+      "ZhipuAI": {
+        ...DEFAULT_OPENAI,
+        config: {
+          ...DEFAULT_OPENAI.config,
+          base_url: "https://open.bigmodel.cn/api/paas/v4/",
+          max_retries: 10
+        }
+      },
+      "glm-4.6": {
+        ...DEFAULT_OPENAI,
+        config: {
+          ...DEFAULT_OPENAI.config,
+          model: "glm-4.6",
+          base_url: "https://open.bigmodel.cn/api/paas/v4/",
+          max_retries: 10
+        }
+      },
+      "glm-4.5-air": {
+        ...DEFAULT_OPENAI,
+        config: {
+          ...DEFAULT_OPENAI.config,
+          model: "glm-4.5-air",
+          base_url: "https://open.bigmodel.cn/api/paas/v4/",
+          max_retries: 10
+        }
+      },
+      "glm-4-flash": {
+        ...DEFAULT_OPENAI,
+        config: {
+          ...DEFAULT_OPENAI.config,
+          model: "glm-4-flash",
+          base_url: "https://open.bigmodel.cn/api/paas/v4/",
+          max_retries: 10
+        }
+      },
+      "glm-4.5v": {
+        ...DEFAULT_OPENAI,
+        config: {
+          ...DEFAULT_OPENAI.config,
+          model: "glm-4.5v",
+          base_url: "https://open.bigmodel.cn/api/paas/v4/",
+          max_retries: 10,
+          model_info: {
+            vision: true,
+            function_calling: true,
+            json_output: true,
+            family: "unknown" as const,
+            structured_output: false,
+            multiple_system_messages: false,
+          }
+        }
       }
     }
   },
@@ -181,7 +234,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onChange, value }) => {
     }
   };
 
-  // --- Hide advanced toggles for OpenAI recognized models (except OpenRouter and GPT-5 models) ---
+  // --- Hide advanced toggles for OpenAI recognized models (except OpenRouter, GPT-5 models, and glm-4.5v) ---
   let hideAdvancedToggles = false;
   if (
     provider === DEFAULT_OPENAI.provider &&
@@ -189,7 +242,8 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onChange, value }) => {
     preset &&
     Object.keys(providerFormEntry.presets).includes(preset) &&
     preset !== 'OpenRouter' &&
-    !preset.startsWith('gpt-5')
+    !preset.startsWith('gpt-5') &&
+    preset !== 'glm-4.5v'  // glm-4.5v支持视觉,不隐藏高级设置
   ) {
     hideAdvancedToggles = true;
   }
