@@ -12,7 +12,7 @@
     "dev": "npm run develop",
     "start": "gatsby clean && gatsby develop",
     "build": "gatsby clean && rm -rf ../src/magentic_ui/backend/web/ui && PREFIX_PATH_VALUE='' gatsby build --prefix-paths && rsync -a --delete public/ ../src/magentic_ui/backend/web/ui/",
-    "build-win": "gatsby clean && (if exist ..\\src\\magentic_ui\\backend\\web\\ui rmdir /s /q ..\\src\\magentic_ui\\backend\\web\\ui) && $env:PREFIX_PATH_VALUE='' && gatsby build --prefix-paths && xcopy /E /I /Y public\\* ..\\src\\magentic_ui\\backend\\web\\ui\\",
+    "build-win": "gatsby clean && if exist ..\\src\\magentic_ui\\backend\\web\\ui rmdir /s /q ..\\src\\magentic_ui\\backend\\web\\ui && set PREFIX_PATH_VALUE= && gatsby build --prefix-paths && xcopy public ..\\src\\magentic_ui\\backend\\web\\ui /E /I /Y",
     "serve": "gatsby serve",
     "clean": "gatsby clean",
     "typecheck": "tsc --noEmit"
