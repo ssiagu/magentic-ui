@@ -1,0 +1,27 @@
+# Magentic-UI 全栈架构文档
+
+## Table of Contents
+
+- [Magentic-UI 全栈架构文档](#table-of-contents)
+  - [Introduction](#introduction)
+  - [High Level Architecture](#high-level-architecture)
+  - [Tech Stack](#tech-stack)
+  - [Data Models](#data-models)
+  - [API Specification](#api-specification)
+  - [Components](#components)
+  - [External APIs](#external-apis)
+  - [Core Workflows](#core-workflows)
+  - [Database Schema](#database-schema)
+  - [Frontend Architecture](#frontend-architecture)
+  - [Backend Architecture](#backend-architecture)
+  - [Unified Project Structure](#unified-project-structure)
+  - [Development Workflow](#development-workflow)
+  - [Deployment Architecture](#deployment-architecture)
+  - [Security and Performance](#security-and-performance)
+  - [Testing Strategy](#testing-strategy)
+  - [Coding Standards](#coding-standards)
+  - [Error Handling Strategy](#error-handling-strategy)
+  - [Monitoring and Observability](#monitoring-and-observability)
+  - [多模型支持架构深度分析](#多模型支持架构深度分析)
+  - [OpenAI集成架构深度分析](#openai集成架构深度分析)
+  - [智谱AI集成架构深度分析](#智谱ai集成架构深度分析)
