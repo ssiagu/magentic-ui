@@ -72,10 +72,10 @@ interface RenderStepExecutionProps {
 
 interface ParsedContent {
   text:
-    | string
-    | FunctionCall[]
-    | (string | ImageContent)[]
-    | FunctionExecutionResult[];
+  | string
+  | FunctionCall[]
+  | (string | ImageContent)[]
+  | FunctionExecutionResult[];
   metadata?: Record<string, string>;
   plan?: IPlanStep[];
 }
@@ -191,7 +191,7 @@ const parseorchestratorContent = (
     if (messageUtils.isStepExecution(metadata)) {
       return { type: "step-execution" as const, content: parsedContent };
     }
-  } catch {}
+  } catch { }
 
   return { type: "default" as const, content };
 };
@@ -297,7 +297,7 @@ const RenderToolResult: React.FC<{ content: FunctionExecutionResult[] }> = memo(
           return (
             <div key={result.call_id} className="rounded p-2">
               <div className="font-medium">Result ID: {result.call_id}</div>
-              <div 
+              <div
                 className="cursor-pointer hover:bg-secondary/50 rounded p-1"
                 onClick={() => toggleExpand(result.call_id)}
               >
@@ -555,6 +555,14 @@ export const messageUtils = {
     return metadata?.type === "sentinel_complete";
   },
 
+  isSentinelStatus(metadata?: Record<string, any>): boolean {
+    return metadata?.type === "sentinel_status";
+  },
+
+  isSentinelSleeping(metadata?: Record<string, any>): boolean {
+    return metadata?.type === "sentinel_sleeping";
+  },
+
   findUserPlan(content: unknown): IPlanStep[] {
     if (typeof content !== "string") return [];
     try {
@@ -656,9 +664,9 @@ const RenderUserMessage: React.FC<{
           <PlanView
             task={""}
             plan={parsedContent.plan}
-            setPlan={() => {}} // No-op since it's read-only
+            setPlan={() => { }} // No-op since it's read-only
             viewOnly={true}
-            onSavePlan={() => {}} // No-op since it's read-only
+            onSavePlan={() => { }} // No-op since it's read-only
           />
         )}
     </div>
@@ -696,7 +704,9 @@ export const RenderMessage: React.FC<MessageProps> = memo(
     if (!skipSentinelHiding) {
       if (
         messageUtils.isSentinelCheck(message.metadata) ||
-        messageUtils.isSentinelComplete(message.metadata)
+        messageUtils.isSentinelComplete(message.metadata) ||
+        messageUtils.isSentinelStatus(message.metadata) ||
+        messageUtils.isSentinelSleeping(message.metadata)
       ) {
         return null;
       }
@@ -709,6 +719,11 @@ export const RenderMessage: React.FC<MessageProps> = memo(
 
     // Handle sentinel start message
     if (messageUtils.isSentinelStart(message.metadata)) {
+      // Hide sentinel step if hidden prop is true
+      if (hidden) {
+        return null;
+      }
+
       try {
         const sentinelData = JSON.parse(message.content as string);
         return (
@@ -768,29 +783,25 @@ export const RenderMessage: React.FC<MessageProps> = memo(
 
     return (
       <div
-        className={`relative group mb-3 ${className} w-full break-words ${
-          hidden &&
-          (!orchestratorContent ||
-            orchestratorContent.type !== "step-execution")
+        className={`relative group mb-3 ${className} w-full break-words ${hidden &&
+            (!orchestratorContent ||
+              orchestratorContent.type !== "step-execution")
             ? "hidden"
             : ""
-        }`}
+          }`}
       >
         <div
-          className={`flex ${
-            isUser || isUserProxy ? "justify-end" : "justify-start"
-          } items-start w-full transition-all duration-200`}
+          className={`flex ${isUser || isUserProxy ? "justify-end" : "justify-start"
+            } items-start w-full transition-all duration-200`}
         >
           <div
-            className={`${
-              isUser || isUserProxy
-                ? `text-primary rounded-2xl bg-tertiary rounded-tr-sm px-4 py-2 ${
-                    parsedContent.plan && parsedContent.plan.length > 0
-                      ? "w-[80%]"
-                      : "max-w-[80%]"
-                  }`
+            className={`${isUser || isUserProxy
+                ? `text-primary rounded-2xl bg-tertiary rounded-tr-sm px-4 py-2 ${parsedContent.plan && parsedContent.plan.length > 0
+                  ? "w-[80%]"
+                  : "max-w-[80%]"
+                }`
                 : "w-full text-primary"
-            } break-words overflow-hidden`}
+              } break-words overflow-hidden`}
           >
             {/* Show user message content first */}
             {(isUser || isUserProxy) && (

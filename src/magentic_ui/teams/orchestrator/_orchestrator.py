@@ -1428,6 +1428,21 @@ class Orchestrator(BaseGroupChatManager):
                     time_since_last_check = 0.0
                 last_check_time = current_time
 
+                # Send a status update that we're actively checking
+                checking_metadata = {
+                    "type": "sentinel_status",
+                    "sentinel_id": sentinel_step_id,
+                    "check_number": str(iteration),
+                    "total_checks": str(iteration),
+                    "runtime": str(int(time_since_started)),
+                    "status": "checking",
+                }
+                await self._log_message_agentchat(
+                    f"Performing check #{iteration}...",
+                    internal=False,
+                    metadata=checking_metadata,
+                )
+
                 # loads the initial state of the agent
                 if can_save_load and initial_agent_state is not None:
                     if agent_name == self._web_agent_topic:
@@ -1503,9 +1518,36 @@ class Orchestrator(BaseGroupChatManager):
                     elif isinstance(response, TextMessage) or isinstance(
                         response, MultiModalMessage
                     ):
+                        # Add sentinel metadata to standalone messages too
+                        existing_metadata = (
+                            response.metadata
+                            if hasattr(response, "metadata") and response.metadata
+                            else {}
+                        )
+                        new_metadata = {
+                            **existing_metadata,
+                            "sentinel_id": sentinel_step_id,
+                            "check_number": str(iteration),
+                        }
+
+                        if isinstance(response, TextMessage):
+                            logged_message = TextMessage(
+                                content=response.content,
+                                source=response.source,
+                                metadata=new_metadata,
+                            )
+                        elif isinstance(response, MultiModalMessage):
+                            logged_message = MultiModalMessage(
+                                content=response.content,
+                                source=response.source,
+                                metadata=new_metadata,
+                            )
+                        else:
+                            logged_message = response
+
                         await self._log_message_agentchat(
                             content="not used",
-                            entire_message=response,
+                            entire_message=logged_message,
                         )
                 # this is a MultiModalMessage or TextMessage object
                 assert (
@@ -1608,6 +1650,24 @@ class Orchestrator(BaseGroupChatManager):
 
                 # If condition met, return to complete the step
                 if condition_met:
+                    # Log the final check message first so it appears in check history
+                    check_metadata = {
+                        "internal": "no",
+                        "type": "sentinel_check",
+                        "sentinel_id": sentinel_step_id,
+                        "check_number": str(iteration),
+                        "total_checks": str(iteration),
+                        "runtime": str(int(time_since_started)),
+                        "next_check_in": "0",
+                        "condition_met": "true",
+                        "reason": reason or "Condition met",
+                    }
+                    await self._log_message_agentchat(
+                        f"(Check #{iteration}) Condition satisfied: {reason}",
+                        metadata=check_metadata,
+                    )
+
+                    # Then log the completion message
                     log_msg = f"Condition satisfied: {reason}."
                     complete_metadata = {
                         "internal": "no",
@@ -1639,19 +1699,22 @@ class Orchestrator(BaseGroupChatManager):
                         # if we just encountered an error, we force a shorter sleep duration
                         sleep_duration = min(sleep_duration, 30)  # cap at 30 secs
                     # Sleep before the next check
+                    # Send a message indicating we're sleeping with timestamp
+                    sleep_start_time = datetime.now()
                     sleep_metadata = {
-                        "internal": "no",
-                        "type": "sentinel_check",
+                        "type": "sentinel_sleeping",
                         "sentinel_id": sentinel_step_id,
                         "check_number": str(iteration),
                         "total_checks": str(iteration),
                         "runtime": str(int(time_since_started)),
-                        "next_check_in": str(sleep_duration),
+                        "sleep_duration": str(sleep_duration),
+                        "sleep_start_timestamp": sleep_start_time.isoformat(),
                         "condition_met": "false",
                         "reason": reason or "Condition not yet satisfied",
                     }
                     await self._log_message_agentchat(
                         f"(Check #{iteration}) Condition not satisfied: {reason} \n Sleeping for {sleep_duration}s before next check.",
+                        internal=True,
                         metadata=sleep_metadata,
                     )
                     if self._config.sentinel_plan.dynamic_sentinel_sleep:
@@ -1660,11 +1723,14 @@ class Orchestrator(BaseGroupChatManager):
                             metadata={"internal": "no", "type": "sentinel_sleep"},
                         )
 
+                    # Sleep with pause monitoring
                     sleep_task = asyncio.create_task(asyncio.sleep(sleep_duration))
                     pause_task = asyncio.create_task(self._pause_event.wait())
+
                     _, pending = await asyncio.wait(
                         [sleep_task, pause_task], return_when=asyncio.FIRST_COMPLETED
                     )
+
                     for task in pending:
                         task.cancel()
                         try:
