@@ -85,14 +85,118 @@ magentic-ui --port 8081
 创建`config.yaml`:
 
 ```yaml
-model_client_configs:
-  orchestrator:
-    provider: OpenAIChatCompletionClient
-    config:
-      model: glm-4.6
-      base_url: https://open.bigmodel.cn/api/paas/v4/
-      api_key: ${ZHIPUAI_API_KEY}
-      max_retries: 10
+# Define ZhipuAI client base configuration (using YAML anchor)
+zhipuai_base_config: &zhipuai_base_config
+  base_url: https://open.bigmodel.cn/api/paas/v4/
+  api_key: ${ZHIPUAI_API_KEY}
+  max_retries: 10
+
+# Configure models for each agent
+orchestrator_client:
+  provider: OpenAIChatCompletionClient
+  config:
+    <<: *zhipuai_base_config
+    model: glm-4.6
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.7
+    max_tokens: 6000
+
+web_surfer_client:
+  provider: OpenAIChatCompletionClient
+  config:
+    <<: *zhipuai_base_config
+    model: glm-4.6
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.5
+    max_tokens: 6000
+
+coder_client:
+  provider: OpenAIChatCompletionClient
+  config:
+    <<: *zhipuai_base_config
+    model: glm-4.6
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.3
+    max_tokens: 8000
+
+file_surfer_client:
+  provider: OpenAIChatCompletionClient
+  config:
+    <<: *zhipuai_base_config
+    model: glm-4.5-air
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.5
+    max_tokens: 4000
+
+action_guard_client:
+  provider: OpenAIChatCompletionClient
+  config:
+    <<: *zhipuai_base_config
+    model: glm-4-flash
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.1
+    max_tokens: 2000
+
+plan_learning_client:
+  provider: OpenAIChatCompletionClient
+  config:
+    <<: *zhipuai_base_config
+    model: glm-4.6
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.7
+    max_tokens: 6000
+
+# Other Magentic-UI configuration
+cooperative_planning: true
+autonomous_execution: false
+max_actions_per_step: 5
+max_turns: 20
+approval_policy: auto-conservative
+allow_for_replans: true
+do_bing_search: false
+websurfer_loop: false
 ```
 
 启动:
@@ -209,61 +313,118 @@ Action Guard: glm-4-flash
 ```yaml
 # config.yaml - 智谱AI完整配置示例
 
-# 智谱AI配置 (使用YAML锚点避免重复)
-zhipuai_client: &zhipuai_client
+# Define ZhipuAI client base configuration (using YAML anchor)
+zhipuai_base_config: &zhipuai_base_config
+  base_url: https://open.bigmodel.cn/api/paas/v4/
+  api_key: ${ZHIPUAI_API_KEY}  # 从环境变量读取
+  max_retries: 10
+
+# Configure models for each agent
+orchestrator_client:
   provider: OpenAIChatCompletionClient
   config:
-    base_url: https://open.bigmodel.cn/api/paas/v4/
-    api_key: ${ZHIPUAI_API_KEY}  # 从环境变量读取
-    max_retries: 10
+    <<: *zhipuai_base_config
+    model: glm-4.6
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.7
+    max_tokens: 6000
 
-# 为每个智能体配置模型
-model_client_configs:
-  orchestrator:
-    <<: *zhipuai_client
-    config:
-      <<: *zhipuai_client.config
-      model: glm-4.6
-      temperature: 0.7
-      max_tokens: 6000
-  
-  web_surfer:
-    <<: *zhipuai_client
-    config:
-      <<: *zhipuai_client.config
-      model: glm-4.6
-      temperature: 0.5
-      max_tokens: 6000
-  
-  coder:
-    <<: *zhipuai_client
-    config:
-      <<: *zhipuai_client.config
-      model: glm-4.6
-      temperature: 0.3
-      max_tokens: 8000
-  
-  file_surfer:
-    <<: *zhipuai_client
-    config:
-      <<: *zhipuai_client.config
-      model: glm-4.5-air
-      temperature: 0.5
-      max_tokens: 4000
-  
-  action_guard:
-    <<: *zhipuai_client
-    config:
-      <<: *zhipuai_client.config
-      model: glm-4-flash
-      temperature: 0.1
-      max_tokens: 2000
+web_surfer_client:
+  provider: OpenAIChatCompletionClient
+  config:
+    <<: *zhipuai_base_config
+    model: glm-4.6
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.5
+    max_tokens: 6000
 
-# 其他配置
+coder_client:
+  provider: OpenAIChatCompletionClient
+  config:
+    <<: *zhipuai_base_config
+    model: glm-4.6
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.3
+    max_tokens: 8000
+
+file_surfer_client:
+  provider: OpenAIChatCompletionClient
+  config:
+    <<: *zhipuai_base_config
+    model: glm-4.5-air
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.5
+    max_tokens: 4000
+
+action_guard_client:
+  provider: OpenAIChatCompletionClient
+  config:
+    <<: *zhipuai_base_config
+    model: glm-4-flash
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.1
+    max_tokens: 2000
+
+plan_learning_client:
+  provider: OpenAIChatCompletionClient
+  config:
+    <<: *zhipuai_base_config
+    model: glm-4.6
+    model_info:
+      provider: "zhipuai"
+      family: "glm"
+      type: "chat_completion"
+      vision: false
+      function_calling: true
+      json_output: true
+      structured_output: true
+    temperature: 0.7
+    max_tokens: 6000
+
+# Other Magentic-UI configuration
 cooperative_planning: true
 autonomous_execution: false
 max_actions_per_step: 5
 max_turns: 20
+approval_policy: auto-conservative
+allow_for_replans: true
+do_bing_search: false
+websurfer_loop: false
 ```
 
 #### 混合配置示例
