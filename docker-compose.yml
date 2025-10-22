@@ -1,0 +1,160 @@
+version: '3.8'
+
+services:
+  # VNC Browser Container - 提供浏览器环境
+  browser:
+    image: magentic-ui/browser:latest
+    container_name: magentic-ui-browser
+    ports:
+      - "5900:5900"  # noVNC端口
+      - "6080:6080"  # VNC浏览器端口
+    environment:
+      - DISPLAY=:99
+      - VNC_NO_PASSWORD=1
+      - VNC_VIEW_ONLY=0
+    volumes:
+      - browser_data:/data
+    networks:
+      - magentic-ui-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6080", "--timeout=10"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Python Environment Container - 提供Python执行环境
+  python:
+    image: magentic-ui/python:latest
+    container_name: magentic-ui-python
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MAGENTIC_UI_ENV=production
+    volumes:
+      - python_data:/app/data
+      - user_files:/app/user_files
+      - ./src:/app/src  # 挂载源代码用于开发
+    networks:
+      - magentic-ui-network
+    depends_on:
+      - browser
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Magentic-UI Application Container - 主应用
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: magentic-ui-app
+    ports:
+      - "8081:8081"  # Web界面端口
+    environment:
+      - NODE_ENV=production
+      - MAGENTIC_UI_CONFIG_PATH=/app/config
+      - MAGENTIC_UI_DATA_DIR=/app/data
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - ./config_zhipuai_fixed.yaml:/app/config/config_zhipuai_fixed.yaml:ro
+      - app_data:/app/data
+      - user_files:/app/user_files
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Docker socket访问
+    networks:
+      - magentic-ui-network
+    depends_on:
+      - browser
+      - python
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis Container - 缓存和会话存储 (可选)
+  redis:
+    image: redis:7-alpine
+    container_name: magentic-ui-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - magentic-ui-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - with-redis  # 使用 --profile with-redis 启用
+
+  # PostgreSQL Database - 数据持久化存储 (可选)
+  postgres:
+    image: postgres:15-alpine
+    container_name: magentic-ui-postgres
+    environment:
+      POSTGRES_DB: magentic_ui
+      POSTGRES_USER: magentic_user
+      POSTGRES_PASSWORD: ${MAGENTIC_UI_DB_PASSWORD:-magentic_password}
+      POSTGRES_HOST: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - magentic-ui-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-U", "postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - with-postgres  # 使用 --profile with-postgres 启用
+
+# 网络配置
+networks:
+  magentic-ui-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# 数据卷配置
+volumes:
+  # 浏览器数据
+  browser_data:
+    driver: local
+
+  # Python环境数据
+  python_data:
+    driver: local
+
+  # 用户文件存储
+  user_files:
+    driver: local
+
+  # 应用数据
+  app_data:
+    driver: local
+
+  # Redis数据
+  redis_data:
+    driver: local
+    profiles:
+      - with-redis
+
+  # PostgreSQL数据
+  postgres_data:
+    driver: local
+    profiles:
+      - with-postgres
