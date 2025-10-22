@@ -224,7 +224,7 @@ async def get_team(
     client_config_dict: dict[str, Any] = {}
     if client_config:
         log_debug(f"Loading client configuration from: {client_config}", debug)
-        with open(client_config, "r") as f:
+        with open(client_config, "r", encoding="utf-8") as f:
             client_config_dict = yaml.safe_load(f)
             log_debug(
                 f"Client config loaded with {len(client_config_dict)} keys", debug
@@ -296,7 +296,7 @@ async def get_team(
             state = None
             log_debug(f"Loading state from: {state_file}", debug)
 
-            with open(state_file, "r") as f:
+            with open(state_file, "r", encoding="utf-8") as f:
                 state = json.load(f)
                 log_debug("State loaded successfully", debug)
 
@@ -410,7 +410,7 @@ async def get_team(
         log_debug("State saved successfully", debug)
 
         log_debug(f"Writing state to file: {state_file}", debug)
-        with open(state_file, "w") as f:
+        with open(state_file, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
         log_debug("State file write completed", debug)
 
@@ -683,7 +683,7 @@ def cli_main(
             )
         elif os.path.isfile(task):
             log_debug(f"Reading task from file: {task}", debug)
-            with open(task, "r") as f:
+            with open(task, "r", encoding="utf-8") as f:
                 processed_task = f.read()
                 log_debug(
                     f"Task read from file, length: {len(processed_task if processed_task else '')}",
@@ -742,7 +742,7 @@ def cli_main(
                 f"Reading final answer prompt from file: {final_answer_prompt}",
                 debug,
             )
-            with open(final_answer_prompt, "r") as f:
+            with open(final_answer_prompt, "r", encoding="utf-8") as f:
                 processed_final_answer_prompt = f.read()
                 log_debug(
                     f"Final answer prompt read from file, length: {len(processed_final_answer_prompt if processed_final_answer_prompt else '')}",
@@ -768,7 +768,7 @@ def cli_main(
     # Try and load an MCP Agents file
     mcp_agents: List[McpAgentConfig] = []
     if mcp_agents_file:
-        with open(mcp_agents_file) as fd:
+        with open(mcp_agents_file, encoding="utf-8") as fd:
             mcp_agents_data: Any = yaml.safe_load(fd)
 
         if not isinstance(mcp_agents_data, list):

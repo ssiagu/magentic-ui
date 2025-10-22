@@ -213,3 +213,6 @@ venv.bak/
 **/pagelogs/
 .bmad-core/
 .claude/
+**/config_zhipuai_example.yaml
+config_zhipuai_example.yaml
+config_qwen.yaml

@@ -4,7 +4,7 @@ from loguru import logger
 import os
 import yaml
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Union, List
 from pydantic import BaseModel
 
 from autogen_agentchat.messages import TextMessage, MultiModalMessage
@@ -12,23 +12,26 @@ from autogen_core.models import ChatCompletionClient
 
 from ....learning import learn_plan_from_messages
 from ....learning.memory_provider import MemoryControllerProvider
+from ....providers import ZhipuAIConfig
+from ....types import Plan as LearningPlan
 
 from ...datamodel import Plan
+from ...database import DatabaseManager
 from ..deps import get_db
-from .sessions import list_session_runs
+from .sessions import list_session_runs  # pyright: ignore[reportUnknownVariableType]
 
 router = APIRouter()
 
 
 @router.get("/")
-async def list_plans(user_id: str, db=Depends(get_db)) -> Dict:
+async def list_plans(user_id: str, db: DatabaseManager = Depends(get_db)) -> Dict[str, Any]:
     """Get all plans for a user"""
     response = db.get(Plan, filters={"user_id": user_id})
     return {"status": True, "data": response.data}
 
 
 @router.get("/{plan_id}")
-async def get_plan(plan_id: int, user_id: str, db=Depends(get_db)) -> Dict:
+async def get_plan(plan_id: int, user_id: str, db: DatabaseManager = Depends(get_db)) -> Dict[str, Any]:
     """Get a specific plan"""
     response = db.get(Plan, filters={"id": plan_id, "user_id": user_id})
     if not response.status or not response.data:
@@ -37,7 +40,7 @@ async def get_plan(plan_id: int, user_id: str, db=Depends(get_db)) -> Dict:
 
 
 @router.post("/")
-async def create_plan(plan: Plan, db=Depends(get_db)) -> Dict:
+async def create_plan(plan: Plan, db: DatabaseManager = Depends(get_db)) -> Dict[str, Any]:
     """Create a new plan"""
     if not plan.user_id:
         raise HTTPException(status_code=400, detail="user_id is required")
@@ -51,8 +54,8 @@ async def create_plan(plan: Plan, db=Depends(get_db)) -> Dict:
 
 @router.put("/{plan_id}")
 async def update_plan(
-    plan_id: int, user_id: str, plan: Plan, db=Depends(get_db)
-) -> Dict:
+    plan_id: int, user_id: str, plan: Plan, db: DatabaseManager = Depends(get_db)
+) -> Dict[str, Any]:
     existing_plan = db.get(Plan, filters={"id": plan_id, "user_id": user_id})
     if not existing_plan.status or not existing_plan.data:
         raise HTTPException(status_code=404, detail="Plan not found")
@@ -68,7 +71,7 @@ async def update_plan(
 
 
 @router.delete("/{plan_id}")
-async def delete_plan(plan_id: int, user_id: str, db=Depends(get_db)) -> Dict:
+async def delete_plan(plan_id: int, user_id: str, db: DatabaseManager = Depends(get_db)) -> Dict[str, Any]:
     """Delete a specific plan"""
     response = db.delete(Plan, filters={"id": plan_id, "user_id": user_id})
     if not response.status:
@@ -85,8 +88,8 @@ class LearnPlanRequest(BaseModel):
 @router.post("/learn_plan")
 async def learn_plan(
     request: LearnPlanRequest,
-    db=Depends(get_db),
-):
+    db: DatabaseManager = Depends(get_db),
+) -> Dict[str, Any]:
     """Learn a plan from chat messages in a session"""
     session_id = request.session_id
     user_id = request.user_id
@@ -103,7 +106,7 @@ async def learn_plan(
         config: dict[str, Any] = {}
         config_file = os.environ.get("_CONFIG")
         if config_file:
-            with open(config_file, "r") as f:
+            with open(config_file, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
 
         # Load the client from the config
@@ -117,21 +120,19 @@ async def learn_plan(
         else:
             # If nothing was provided, use a safe default
             # Check if ZhipuAI is configured
-            from magentic_ui.providers import ZhipuAIConfig
-            
             if os.environ.get("ZHIPUAI_API_KEY") or (
                 os.environ.get("OPENAI_BASE_URL") and 
-                ZhipuAIConfig.is_zhipuai_url(os.environ.get("OPENAI_BASE_URL"))
+                ZhipuAIConfig.is_zhipuai_url(os.environ.get("OPENAI_BASE_URL", ""))
             ):
                 # Use ZhipuAI configuration
                 zhipuai_config = ZhipuAIConfig.create_client_config(
-                    model="glm-4.6",
+                    model="glm-4-plus",
                     max_retries=10
                 )
                 model_client = ChatCompletionClient.load_component(zhipuai_config)
             else:
                 # Use OpenAI as default
-                gpt4o_config = {
+                gpt4o_config: Dict[str, Any] = {
                     "provider": "OpenAIChatCompletionClient",
                     "config": {
                         "model": "gpt-4o-2024-08-06",
@@ -144,12 +145,12 @@ async def learn_plan(
                 model_client = ChatCompletionClient.load_component(gpt4o_config)
 
         # 1. Retrieve messages from database
-        runs_result = await list_session_runs(
+        runs_result: Dict[str, Any] = await list_session_runs(  # pyright: ignore[reportUnknownVariableType]
             session_id=session_id, user_id=user_id, db=db
         )
 
-        runs = runs_result.get("data", {}).get("runs", [])
-        messages = []
+        runs: list[Any] = runs_result.get("data", {}).get("runs", [])
+        messages: list[Any] = []
         if len(runs) > 0:
             messages = runs[0].get("messages", [])  # only 1 run per session
 
@@ -161,7 +162,7 @@ async def learn_plan(
             }
 
         # 2. Format messages for learn_plan
-        messages_for_learning = []
+        messages_for_learning: List[Union[TextMessage, MultiModalMessage]] = []
         for msg in messages:
             # Skip messages from non-agent or orchestrator sources
             if msg.config.get("source", "") not in [
@@ -191,11 +192,10 @@ async def learn_plan(
                 )
 
         # 3. Call learn_plan
-
-        plan = await learn_plan_from_messages(model_client, messages_for_learning)
+        plan: LearningPlan = await learn_plan_from_messages(model_client, messages_for_learning)
 
         # 4. Convert PlanStep objects to dictionaries
-        steps_as_dicts = []
+        steps_as_dicts: List[Dict[str, Any]] = []
         for step in plan.steps:
             if isinstance(step, dict):
                 steps_as_dicts.append(step)
@@ -211,16 +211,18 @@ async def learn_plan(
                     steps_as_dicts.append(step_dict)
 
         # Create database plan with converted steps
-        db_plan = Plan(
+        db_plan = Plan(  # pyright: ignore[reportCallIssue]
             task=plan.task, steps=steps_as_dicts, user_id=user_id, session_id=session_id
         )
         response = db.upsert(db_plan)
 
         # Add the plan to memory
         try:
+            internal_workspace = os.environ.get("INTERNAL_WORKSPACE_ROOT", ".")
+            external_workspace = os.environ.get("EXTERNAL_WORKSPACE_ROOT", ".")
             memory_provider = MemoryControllerProvider(
-                internal_workspace_root=Path(os.environ.get("INTERNAL_WORKSPACE_ROOT")),
-                external_workspace_root=Path(os.environ.get("EXTERNAL_WORKSPACE_ROOT")),
+                internal_workspace_root=Path(internal_workspace),
+                external_workspace_root=Path(external_workspace),
                 inside_docker=os.environ.get("INSIDE_DOCKER", "false").lower()
                 == "true",
             )

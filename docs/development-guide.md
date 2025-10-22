@@ -91,6 +91,9 @@ pip install -e .
 
 # 或使用uv (推荐的现代Python包管理器)
 uv pip install -e .
+
+# 构建后端
+uv build  # 构建后端
 ```
 
 #### 3. 设置前端环境

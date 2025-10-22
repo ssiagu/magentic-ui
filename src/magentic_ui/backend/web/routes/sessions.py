@@ -11,23 +11,23 @@ router = APIRouter()
 
 
 @router.get("/")
-async def list_sessions(user_id: str, db=Depends(get_db)) -> Dict:
+async def list_sessions(user_id: str, db=Depends(get_db)) -> Dict:  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType, reportMissingTypeArgument]
     """List all sessions for a user"""
     response = db.get(Session, filters={"user_id": user_id})
-    return {"status": True, "data": response.data}
+    return {"status": True, "data": response.data}  # pyright: ignore[reportUnknownVariableType]
 
 
 @router.get("/{session_id}")
-async def get_session(session_id: int, user_id: str, db=Depends(get_db)) -> Dict:
+async def get_session(session_id: int, user_id: str, db=Depends(get_db)) -> Dict:  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType, reportMissingTypeArgument]
     """Get a specific session"""
     response = db.get(Session, filters={"id": session_id, "user_id": user_id})
     if not response.status or not response.data:
         raise HTTPException(status_code=404, detail="Session not found")
-    return {"status": True, "data": response.data[0]}
+    return {"status": True, "data": response.data[0]}  # pyright: ignore[reportUnknownVariableType]
 
 
 @router.post("/")
-async def create_session(session: Session, db=Depends(get_db)) -> Dict:
+async def create_session(session: Session, db=Depends(get_db)) -> Dict:  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType, reportMissingTypeArgument]
     """Create a new session with an associated run"""
     # Create session
     session_response = db.upsert(session)
@@ -37,7 +37,7 @@ async def create_session(session: Session, db=Depends(get_db)) -> Dict:
     # Create associated run
     try:
         run = db.upsert(
-            Run(
+            Run(  # pyright: ignore[reportCallIssue]
                 session_id=session.id,
                 status=RunStatus.CREATED,
                 user_id=session.user_id,
@@ -49,16 +49,16 @@ async def create_session(session: Session, db=Depends(get_db)) -> Dict:
         if not run.status:
             # Clean up session if run creation failed
             raise HTTPException(status_code=400, detail=run.message)
-        return {"status": True, "data": session_response.data}
+        return {"status": True, "data": session_response.data}  # pyright: ignore[reportUnknownVariableType]
     except Exception as e:
         # Clean up session if run creation failed
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/{session_id}")
-async def update_session(
-    session_id: int, user_id: str, session: Session, db=Depends(get_db)
-) -> Dict:
+async def update_session(  # pyright: ignore[reportUnknownParameterType]
+    session_id: int, user_id: str, session: Session, db=Depends(get_db)  # pyright: ignore[reportMissingParameterType]
+) -> Dict:  # pyright: ignore[reportMissingTypeArgument]
     """Update an existing session"""
     # First verify the session belongs to user
     existing = db.get(Session, filters={"id": session_id, "user_id": user_id})
@@ -70,7 +70,7 @@ async def update_session(
     if not response.status:
         raise HTTPException(status_code=400, detail=response.message)
 
-    return {
+    return {  # pyright: ignore[reportUnknownVariableType]
         "status": True,
         "data": response.data,
         "message": "Session updated successfully",
@@ -78,16 +78,16 @@ async def update_session(
 
 
 @router.delete("/{session_id}")
-async def delete_session(session_id: int, user_id: str, db=Depends(get_db)) -> Dict:
+async def delete_session(session_id: int, user_id: str, db=Depends(get_db)) -> Dict:  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType, reportMissingTypeArgument]
     """Delete a session and all its associated runs and messages"""
     # Delete the session
     db.delete(filters={"id": session_id, "user_id": user_id}, model_class=Session)
 
-    return {"status": True, "message": "Session deleted successfully"}
+    return {"status": True, "message": "Session deleted successfully"}  # pyright: ignore[reportUnknownVariableType]
 
 
 @router.get("/{session_id}/runs")
-async def list_session_runs(session_id: int, user_id: str, db=Depends(get_db)) -> Dict:
+async def list_session_runs(session_id: int, user_id: str, db=Depends(get_db)) -> Dict:  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType, reportMissingTypeArgument]
     """Get complete session history organized by runs"""
 
     try:
@@ -130,21 +130,21 @@ async def list_session_runs(session_id: int, user_id: str, db=Depends(get_db)) -
                         # Continue processing other runs even if one fails
                         messages.data = []
 
-                    run_data.append(
+                    run_data.append(  # pyright: ignore[reportUnknownMemberType]
                         {
                             "id": str(run.id),
                             "created_at": run.created_at,
                             "status": run.status,
                             "task": run.task,
                             "team_result": run.team_result,
-                            "messages": messages.data or [],
+                            "messages": messages.data or [],  # pyright: ignore[reportUnknownMemberType]
                             "input_request": getattr(run, "input_request", None),
                         }
                     )
                 except Exception as e:
                     logger.error(f"Error processing run {run.id}: {str(e)}")
                     # Include run with error state instead of failing entirely
-                    run_data.append(
+                    run_data.append(  # pyright: ignore[reportUnknownMemberType]
                         {
                             "id": str(run.id),
                             "created_at": run.created_at,
@@ -157,7 +157,7 @@ async def list_session_runs(session_id: int, user_id: str, db=Depends(get_db)) -
                         }
                     )
 
-        return {"status": True, "data": {"runs": run_data}}
+        return {"status": True, "data": {"runs": run_data}}  # pyright: ignore[reportUnknownVariableType]
 
     except HTTPException:
         raise  # Re-raise HTTP exceptions

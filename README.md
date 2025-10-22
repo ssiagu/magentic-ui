@@ -172,7 +172,9 @@ uv pip install magentic-ui
 
 ### Running Magentic-UI
 
-To run Magentic-UI, make sure that Docker is running, then run the following command:
+#### Option 1: Standard Installation
+
+To run Magentic-UI directly (requires Docker to be running):
 
 ```bash
 magentic-ui --port 8081

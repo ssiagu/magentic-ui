@@ -73,7 +73,7 @@ def load_config(config_path: Optional[str]) -> Optional[Dict[str, Any]]:
     if config_path is None:
         return None
 
-    with open(config_path, "r") as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         if config_path.endswith((".yml", ".yaml")):
             config = yaml.safe_load(f)
             return config if config else None
@@ -109,7 +109,7 @@ def run_system_evaluation(
             }
         )
 
-        def create_benchmark(data_dir="WebVoyager", name="WebVoyager"):
+        def create_benchmark(data_dir="WebVoyager", name="WebVoyager"):  # pyright: ignore[reportMissingParameterType]
             benchmark = WebVoyagerBenchmark(
                 data_dir=data_dir,
                 eval_method="gpt_eval",
@@ -162,7 +162,7 @@ def run_system_sim_user(args: argparse.Namespace, system_name: str) -> None:
         # Use LLMSystem for LLM-based evaluations
         system = LLMSystem(
             system_name=system_name,
-            endpoint_config=config.get("model_client") if config else None,
+            endpoint_config=config.get("model_client") if config else None,  # pyright: ignore[reportArgumentType]
         )
     else:
         system = MagenticUISimUserSystem(
